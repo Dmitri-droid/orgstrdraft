@@ -11,6 +11,7 @@ interface Props {
   nodeTypeLabel: string;
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  onPrimaryChatOpen: () => void;
   employees: Employee[];
   positions: Position[];
   chats: DepartmentChat[];
@@ -29,7 +30,7 @@ const tabs: { key: TabType; label: string }[] = [
 ];
 
 export function ContentPanel(props: Props) {
-  const { node, breadcrumb, nodeTypeLabel, activeTab, onTabChange, onAction } = props;
+  const { node, breadcrumb, nodeTypeLabel, activeTab, onTabChange, onPrimaryChatOpen, onAction } = props;
 
   return (
     <main className="center-column">
@@ -40,7 +41,7 @@ export function ContentPanel(props: Props) {
           <div className="muted">{node.summary.people} участника · {node.summary.leads} руководитель · {node.summary.chats} чат · {node.summary.files} файла</div>
         </div>
         <div className="actions-row">
-          <button onClick={() => onAction('Открытие чата: mock действие')}>Открыть чат</button>
+          <button onClick={onPrimaryChatOpen}>Открыть чат</button>
           <button onClick={() => onAction('Добавление объекта: mock действие')}>Добавить</button>
           <button onClick={() => onAction('Еще: mock меню')}>Еще</button>
         </div>

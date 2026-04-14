@@ -8,10 +8,11 @@ interface Props {
   positions: Position[];
   chats: DepartmentChat[];
   files: DepartmentFile[];
+  onPrimaryChatOpen: () => void;
   onAction: (message: string) => void;
 }
 
-export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onAction }: Props) {
+export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onAction }: Props) {
   const panel = (() => {
     if (selection.kind === 'employee') {
       const employee = employees.find((item) => item.id === selection.id);
@@ -33,14 +34,21 @@ export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positi
       if (!file) return null;
       return <FileCard file={file} onAction={onAction} />;
     }
-    return <DepartmentCard node={node} nodeTypeLabel={nodeTypeLabel} onAction={onAction} />;
+
+    // Если выбран в дереве chat-узел, справа показываем карточку чата, а не карточку подразделения.
+    if (node.type === 'chat') {
+      const linkedChat = chats.find((item) => item.nodeId === node.id) ?? chats.find((item) => item.id === node.primaryChatId);
+      if (linkedChat) return <ChatCard chat={linkedChat} onAction={onAction} />;
+    }
+
+    return <DepartmentCard node={node} nodeTypeLabel={nodeTypeLabel} onPrimaryChatOpen={onPrimaryChatOpen} onAction={onAction} />;
   })();
 
   return <aside className="right-column">{panel}</aside>;
 }
 
-function DepartmentCard({ node, nodeTypeLabel, onAction }: { node: OrgNode; nodeTypeLabel: string; onAction: (message: string) => void }) {
-  return <div className="card"><h3>{node.name}</h3><small>{nodeTypeLabel}</small><p>{node.description}</p><p>Руководитель: {node.leader}</p><p>Сотрудники: {node.summary.people}</p><p>Чаты: {node.summary.chats}</p><p>Файлы: {node.summary.files}</p><div className="actions-row"><button onClick={() => onAction('Открыть чат подразделения')}>Открыть чат</button><button onClick={() => onAction('Добавить сотрудника')}>Добавить сотрудника</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
+function DepartmentCard({ node, nodeTypeLabel, onPrimaryChatOpen, onAction }: { node: OrgNode; nodeTypeLabel: string; onPrimaryChatOpen: () => void; onAction: (message: string) => void }) {
+  return <div className="card"><h3>{node.name}</h3><small>{nodeTypeLabel}</small><p>{node.description}</p><p>Руководитель: {node.leader}</p><p>Сотрудники: {node.summary.people}</p><p>Чаты: {node.summary.chats}</p><p>Файлы: {node.summary.files}</p><div className="actions-row"><button onClick={onPrimaryChatOpen}>Открыть чат</button><button onClick={() => onAction('Добавить сотрудника')}>Добавить сотрудника</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
 }
 
 function EmployeeCard({ employee, onAction }: { employee: Employee; onAction: (message: string) => void }) {

@@ -27,6 +27,19 @@ small, .muted { color: #666; }
 .ghost { border: none; background: transparent; padding: 2px 4px; }
 .tree-title-wrap { flex: 1; display: flex; flex-direction: column; }
 
+.tree-item-wrap { position: relative; }
+.tree-control { border: 1px solid transparent; background: transparent; padding: 2px 6px; }
+.tree-control:hover, .tree-control:focus-visible { border-color: #a8a8a8; background: #f2f2f2; }
+.tree-main-hit { flex: 1; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; background: transparent; text-align: left; padding: 6px; }
+.tree-main-hit:hover, .tree-main-hit:focus-visible { border-color: #b0b0b0; background: #f5f5f5; }
+.tree-main-hit.selected { border-color: #8b8b8b; background: #e8e8e8; }
+.tree-icon { width: 16px; text-align: center; color: #5c5c5c; }
+.tree-menu-btn { border: 1px solid transparent; background: transparent; }
+.tree-menu-btn:hover, .tree-menu-btn:focus-visible, .tree-menu-btn.menu-open { border-color: #a8a8a8; background: #f2f2f2; }
+.tree-menu { margin: 0 0 4px 32px; border: 1px solid #c8c8c8; background: #fff; display: flex; flex-direction: column; max-width: 210px; }
+.tree-menu button { border: none; border-bottom: 1px solid #ececec; text-align: left; background: #fff; }
+.tree-menu button:last-child { border-bottom: none; }
+
 .center-column { display: flex; flex-direction: column; }
 .content-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px; border-bottom: 1px solid #d0d0d0; }
 .actions-row { display: flex; gap: 6px; flex-wrap: wrap; }

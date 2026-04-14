@@ -10,6 +10,8 @@ export interface OrgNode {
   type: NodeType;
   parentId: string | null;
   childrenIds: string[];
+  // primaryChatId нужен для кнопок "Открыть чат" в центре и правой карточке.
+  primaryChatId?: string | null;
   summary: {
     people: number;
     leads: number;
@@ -53,6 +55,7 @@ export interface DepartmentChat {
   lastActivity: string;
   departmentId: string;
   linkedEntity: string;
+  nodeId?: string;
 }
 
 export interface DepartmentFile {

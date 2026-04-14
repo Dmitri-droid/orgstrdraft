@@ -35,9 +35,39 @@ export function App() {
     setTimeout(() => setToast(null), 1800);
   };
 
+  const openPrimaryChat = (nodeId: string) => {
+    const node = orgNodes[nodeId];
+    if (node.type === 'chat') {
+      const directChat = chats.find((chat) => chat.nodeId === node.id) ?? chats.find((chat) => chat.id === node.primaryChatId);
+      if (directChat) {
+        setSelection({ kind: 'chat', id: directChat.id });
+        setActiveTab('chats');
+        showToast(`Открыт чат: ${directChat.name}`);
+      } else {
+        showToast('Для выбранного чат-узла не найден связанный чат.');
+      }
+      return;
+    }
+
+    if (!node.primaryChatId) {
+      showToast('У этого подразделения пока нет основного чата.');
+      return;
+    }
+
+    const primaryChat = chats.find((chat) => chat.id === node.primaryChatId);
+    if (!primaryChat) {
+      showToast('Основной чат не найден в мок-данных.');
+      return;
+    }
+
+    setSelection({ kind: 'chat', id: primaryChat.id });
+    setActiveTab('chats');
+    showToast(`Открыт основной чат: ${primaryChat.name}`);
+  };
+
   const scopedEmployees = employees.filter((item) => item.departmentId === activeNodeId);
   const scopedPositions = positions.filter((item) => item.departmentId === activeNodeId);
-  const scopedChats = chats.filter((item) => item.departmentId === activeNodeId);
+  const scopedChats = chats.filter((item) => item.departmentId === activeNodeId || item.nodeId === activeNodeId);
   const scopedFiles = files.filter((item) => item.departmentId === activeNodeId);
 
   return (
@@ -52,10 +82,11 @@ export function App() {
       <div className="workspace-grid">
         <OrgTreeSidebar
           activeNodeId={activeNodeId}
+          onAction={showToast}
           onSelectNode={(id) => {
             setActiveNodeId(id);
             setSelection({ kind: 'node', id });
-            setActiveTab('people');
+            setActiveTab(orgNodes[id].type === 'chat' ? 'chats' : 'people');
           }}
         />
         <ContentPanel
@@ -63,6 +94,7 @@ export function App() {
           breadcrumb={breadcrumb}
           nodeTypeLabel={nodeTypeLabel[activeNode.type]}
           activeTab={activeTab}
+          onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
           onTabChange={(tab) => {
             setActiveTab(tab);
             setSelection({ kind: 'node', id: activeNodeId });
@@ -83,6 +115,7 @@ export function App() {
           chats={chats}
           files={files}
           nodeTypeLabel={nodeTypeLabel[activeNode.type]}
+          onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
           onAction={showToast}
         />
       </div>
