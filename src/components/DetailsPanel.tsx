@@ -9,10 +9,11 @@ interface Props {
   chats: DepartmentChat[];
   files: DepartmentFile[];
   onPrimaryChatOpen: () => void;
+  onOpenAddModal: () => void;
   onAction: (message: string) => void;
 }
 
-export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onAction }: Props) {
+export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onOpenAddModal, onAction }: Props) {
   const panel = (() => {
     if (selection.kind === 'employee') {
       const employee = employees.find((item) => item.id === selection.id);
@@ -41,14 +42,14 @@ export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positi
       if (linkedChat) return <ChatCard chat={linkedChat} onAction={onAction} />;
     }
 
-    return <DepartmentCard node={node} nodeTypeLabel={nodeTypeLabel} onPrimaryChatOpen={onPrimaryChatOpen} onAction={onAction} />;
+    return <DepartmentCard node={node} nodeTypeLabel={nodeTypeLabel} onPrimaryChatOpen={onPrimaryChatOpen} onOpenAddModal={onOpenAddModal} onAction={onAction} />;
   })();
 
   return <aside className="right-column">{panel}</aside>;
 }
 
-function DepartmentCard({ node, nodeTypeLabel, onPrimaryChatOpen, onAction }: { node: OrgNode; nodeTypeLabel: string; onPrimaryChatOpen: () => void; onAction: (message: string) => void }) {
-  return <div className="card"><h3>{node.name}</h3><small>{nodeTypeLabel}</small><p>{node.description}</p><p>Руководитель: {node.leader}</p><p>Сотрудники: {node.summary.people}</p><p>Чаты: {node.summary.chats}</p><p>Файлы: {node.summary.files}</p><div className="actions-row"><button onClick={onPrimaryChatOpen}>Открыть чат</button><button onClick={() => onAction('Добавить сотрудника')}>Добавить сотрудника</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
+function DepartmentCard({ node, nodeTypeLabel, onPrimaryChatOpen, onOpenAddModal, onAction }: { node: OrgNode; nodeTypeLabel: string; onPrimaryChatOpen: () => void; onOpenAddModal: () => void; onAction: (message: string) => void }) {
+  return <div className="card"><h3>{node.name}</h3><small>{nodeTypeLabel}</small><p>{node.description}</p><p>Руководитель: {node.leader}</p><p>Сотрудники: {node.summary.people}</p><p>Чаты: {node.summary.chats}</p><p>Файлы: {node.summary.files}</p><div className="actions-row"><button onClick={onPrimaryChatOpen}>Открыть чат</button><button onClick={onOpenAddModal}>Добавить сотрудника</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
 }
 
 function EmployeeCard({ employee, onAction }: { employee: Employee; onAction: (message: string) => void }) {

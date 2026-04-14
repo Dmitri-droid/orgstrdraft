@@ -4,6 +4,8 @@ export type TabType = 'people' | 'positions' | 'chats' | 'files' | 'about';
 
 export type PositionStatus = 'occupied' | 'vacant';
 
+export type AddEntityType = 'employee' | 'position' | 'department' | 'chat' | 'file';
+
 export interface OrgNode {
   id: string;
   name: string;

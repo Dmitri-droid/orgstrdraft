@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { chats, employees, files, nodeTypeLabel, orgNodes, positions } from './data/mockData';
+import { AddEntityModal } from './components/AddEntityModal';
 import { ContentPanel } from './components/ContentPanel';
 import { DetailsPanel } from './components/DetailsPanel';
 import { OrgTreeSidebar } from './components/OrgTreeSidebar';
 import { TopBar } from './components/TopBar';
-import { Selection, TabType } from './types/models';
+import { AddEntityType, Selection, TabType } from './types/models';
 
 const ROOT_ID = 'root';
 
@@ -19,6 +20,14 @@ const getBreadcrumb = (nodeId: string): string[] => {
   return chain.reverse();
 };
 
+const submitLabelByEntityType: Record<AddEntityType, string> = {
+  employee: 'Сотрудник',
+  position: 'Должность',
+  department: 'Подразделение',
+  chat: 'Чат',
+  file: 'Файл',
+};
+
 export function App() {
   // Простая state-модель прототипа: текущий узел, таб и контекстное выделение.
   const [activeModule, setActiveModule] = useState<'Компания' | 'Люди' | 'Чаты' | 'Файлы'>('Компания');
@@ -26,6 +35,9 @@ export function App() {
   const [activeTab, setActiveTab] = useState<TabType>('people');
   const [selection, setSelection] = useState<Selection>({ kind: 'node', id: ROOT_ID });
   const [toast, setToast] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalEntityType, setAddModalEntityType] = useState<AddEntityType>('employee');
+  const [addModalContextNodeId, setAddModalContextNodeId] = useState(ROOT_ID);
 
   const activeNode = orgNodes[activeNodeId];
   const breadcrumb = useMemo(() => getBreadcrumb(activeNodeId), [activeNodeId]);
@@ -33,6 +45,12 @@ export function App() {
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 1800);
+  };
+
+  const openAddModal = (nodeId: string, entityType: AddEntityType = 'employee') => {
+    setAddModalContextNodeId(nodeId);
+    setAddModalEntityType(entityType);
+    setIsAddModalOpen(true);
   };
 
   const openPrimaryChat = (nodeId: string) => {
@@ -76,13 +94,14 @@ export function App() {
         activeModule={activeModule}
         breadcrumb={breadcrumb}
         onSwitchModule={setActiveModule}
-        onCreate={() => showToast('Создание сущности: mock действие')}
+        onCreate={() => openAddModal(activeNodeId)}
         onMore={() => showToast('Дополнительные действия: mock меню')}
       />
       <div className="workspace-grid">
         <OrgTreeSidebar
           activeNodeId={activeNodeId}
           onAction={showToast}
+          onOpenAddModal={openAddModal}
           onSelectNode={(id) => {
             setActiveNodeId(id);
             setSelection({ kind: 'node', id });
@@ -95,6 +114,7 @@ export function App() {
           nodeTypeLabel={nodeTypeLabel[activeNode.type]}
           activeTab={activeTab}
           onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
+          onOpenAddModal={() => openAddModal(activeNodeId)}
           onTabChange={(tab) => {
             setActiveTab(tab);
             setSelection({ kind: 'node', id: activeNodeId });
@@ -116,9 +136,23 @@ export function App() {
           files={files}
           nodeTypeLabel={nodeTypeLabel[activeNode.type]}
           onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
+          onOpenAddModal={() => openAddModal(activeNodeId)}
           onAction={showToast}
         />
       </div>
+
+      <AddEntityModal
+        isOpen={isAddModalOpen}
+        contextNode={orgNodes[addModalContextNodeId]}
+        entityType={addModalEntityType}
+        onEntityTypeChange={setAddModalEntityType}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmit={(type) => {
+          setIsAddModalOpen(false);
+          showToast(`${submitLabelByEntityType[type]} добавлен(а): mock flow`);
+        }}
+      />
+
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
