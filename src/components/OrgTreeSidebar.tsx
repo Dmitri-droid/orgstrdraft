@@ -116,17 +116,20 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
           onDragOver={(overNodeId) => {
             setDragState((prev) => ({ ...prev, overNodeId }));
           }}
-          onDrop={(targetNodeId, targetParentId) => {
-            if (!dragState.draggedNodeId || !dragState.sourceParentId || !targetParentId) {
+          onDrop={(targetNodeId, targetParentId, payload) => {
+            const draggedNodeId = payload?.draggedNodeId ?? dragState.draggedNodeId;
+            const sourceParentId = payload?.sourceParentId ?? dragState.sourceParentId;
+
+            if (!draggedNodeId || !sourceParentId || !targetParentId) {
               setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
               return;
             }
-            if (dragState.sourceParentId !== targetParentId) {
+            if (sourceParentId !== targetParentId) {
               onAction('Можно менять порядок только в пределах одного уровня.');
               setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
               return;
             }
-            reorderWithinLevel(targetParentId, dragState.draggedNodeId, targetNodeId);
+            reorderWithinLevel(targetParentId, draggedNodeId, targetNodeId);
             onAction('Порядок обновлен');
             setOpenMenuNodeId(null);
             setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });

@@ -179,8 +179,8 @@ function bindInteractions() {
       if (!parentId) { e.preventDefault(); return; }
       state.drag = { draggedNodeId: nodeId, sourceParentId: parentId, overNodeId: null };
       state.openTreeMenuNodeId = null;
+      e.dataTransfer.setData('application/org-node', JSON.stringify({ draggedNodeId: nodeId, sourceParentId: parentId }));
       e.dataTransfer.effectAllowed = 'move';
-      render();
     };
     handle.ondragend = () => { state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null }; render(); };
   });
@@ -197,16 +197,28 @@ function bindInteractions() {
       e.preventDefault();
       const targetNodeId = zone.dataset.dropNode;
       const targetParentId = zone.dataset.dropParent || null;
-      if (!state.drag.draggedNodeId || !state.drag.sourceParentId || !targetParentId) {
+      let payload = null;
+      const raw = e.dataTransfer.getData('application/org-node');
+      if (raw) {
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          payload = null;
+        }
+      }
+      const draggedNodeId = payload?.draggedNodeId || state.drag.draggedNodeId;
+      const sourceParentId = payload?.sourceParentId || state.drag.sourceParentId;
+
+      if (!draggedNodeId || !sourceParentId || !targetParentId) {
         state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null };
         return render();
       }
-      if (state.drag.sourceParentId !== targetParentId) {
+      if (sourceParentId !== targetParentId) {
         toast('Можно менять порядок только в пределах одного уровня.');
         state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null };
         return render();
       }
-      if (reorderWithinLevel(targetParentId, state.drag.draggedNodeId, targetNodeId)) toast('Порядок обновлен');
+      if (reorderWithinLevel(targetParentId, draggedNodeId, targetNodeId)) toast('Порядок обновлен');
       state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null };
       state.openTreeMenuNodeId = null;
       render();

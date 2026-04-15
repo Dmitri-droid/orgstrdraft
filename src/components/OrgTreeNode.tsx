@@ -15,7 +15,7 @@ interface Props {
   onMenuAction: (nodeId: string, actionLabel: string) => void;
   onDragStart: (draggedNodeId: string, sourceParentId: string | null) => void;
   onDragOver: (overNodeId: string) => void;
-  onDrop: (targetNodeId: string, targetParentId: string | null) => void;
+  onDrop: (targetNodeId: string, targetParentId: string | null, payload?: { draggedNodeId: string | null; sourceParentId: string | null }) => void;
   onDragEnd: () => void;
   menuItemsByType: Record<OrgNode['type'], string[]>;
   nodeTypeLabel: Record<OrgNode['type'], string>;
@@ -56,7 +56,16 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
         }}
         onDrop={(event) => {
           event.preventDefault();
-          onDrop(nodeId, parentId);
+          let payload = undefined;
+          const raw = event.dataTransfer.getData('application/org-node');
+          if (raw) {
+            try {
+              payload = JSON.parse(raw) as { draggedNodeId: string | null; sourceParentId: string | null };
+            } catch {
+              payload = undefined;
+            }
+          }
+          onDrop(nodeId, parentId, payload);
         }}
       >
         {/* 0) Отдельная зона для drag-and-drop reorder */}
@@ -67,6 +76,8 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
           onDragStart={(event) => {
             event.stopPropagation();
             onDragStart(nodeId, parentId);
+            event.dataTransfer.setData('application/org-node', JSON.stringify({ draggedNodeId: nodeId, sourceParentId: parentId }));
+            event.dataTransfer.effectAllowed = 'move';
           }}
           onDragEnd={onDragEnd}
         >
