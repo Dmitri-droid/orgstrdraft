@@ -4,7 +4,6 @@ import { AddEntityModal } from './components/AddEntityModal';
 import { ContentPanel } from './components/ContentPanel';
 import { DetailsPanel } from './components/DetailsPanel';
 import { OrgTreeSidebar } from './components/OrgTreeSidebar';
-import { TopBar } from './components/TopBar';
 import { AddEntityType, Selection, TabType } from './types/models';
 
 const ROOT_ID = 'root';
@@ -30,7 +29,6 @@ const submitLabelByEntityType: Record<AddEntityType, string> = {
 
 export function App() {
   // Простая state-модель прототипа: текущий узел, таб и контекстное выделение.
-  const [activeModule, setActiveModule] = useState<'Компания' | 'Люди' | 'Чаты' | 'Файлы'>('Компания');
   const [activeNodeId, setActiveNodeId] = useState(ROOT_ID);
   const [activeTab, setActiveTab] = useState<TabType>('people');
   const [selection, setSelection] = useState<Selection>({ kind: 'node', id: ROOT_ID });
@@ -90,13 +88,6 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <TopBar
-        activeModule={activeModule}
-        breadcrumb={breadcrumb}
-        onSwitchModule={setActiveModule}
-        onCreate={() => openAddModal(activeNodeId)}
-        onMore={() => showToast('Дополнительные действия: mock меню')}
-      />
       <div className="workspace-grid">
         <OrgTreeSidebar
           activeNodeId={activeNodeId}

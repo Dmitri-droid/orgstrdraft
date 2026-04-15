@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { nodeTypeLabel, orgNodes } from '../data/mockData';
 import { AddEntityType, OrgNode } from '../types/models';
 import { OrgTreeNode } from './OrgTreeNode';
@@ -21,12 +21,38 @@ const menuItemsByType: Record<OrgNode['type'], string[]> = {
   system: ['Открыть', 'Настроить отображение'],
 };
 
+const buildInitialOrder = (): Record<string, string[]> =>
+  Object.values(orgNodes).reduce<Record<string, string[]>>((acc, node) => {
+    acc[node.id] = [...node.childrenIds];
+    return acc;
+  }, {});
+
 export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAddModal }: Props) {
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [openMenuNodeId, setOpenMenuNodeId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ root: true, hq: true, feo: true, 'feo-b': true, 'feo-b-2': true });
+  const [childOrderByParent, setChildOrderByParent] = useState<Record<string, string[]>>(buildInitialOrder);
+  const [dragState, setDragState] = useState<{ draggedNodeId: string | null; sourceParentId: string | null; overNodeId: string | null }>({
+    draggedNodeId: null,
+    sourceParentId: null,
+    overNodeId: null,
+  });
   const sidebarRef = useRef<HTMLElement | null>(null);
+
+  const orderedNodes = useMemo<Record<string, OrgNode>>(
+    () =>
+      Object.fromEntries(
+        Object.entries(orgNodes).map(([id, node]) => [
+          id,
+          {
+            ...node,
+            childrenIds: childOrderByParent[id] ?? node.childrenIds,
+          },
+        ]),
+      ),
+    [childOrderByParent],
+  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -36,7 +62,10 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
       }
     };
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenMenuNodeId(null);
+      if (event.key === 'Escape') {
+        setOpenMenuNodeId(null);
+        setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
+      }
     };
     window.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('keydown', handleEscape);
@@ -45,6 +74,19 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
       window.removeEventListener('keydown', handleEscape);
     };
   }, [openMenuNodeId]);
+
+  const reorderWithinLevel = (parentId: string, draggedNodeId: string, overNodeId: string) => {
+    setChildOrderByParent((prev) => {
+      const siblings = [...(prev[parentId] ?? [])];
+      const fromIndex = siblings.indexOf(draggedNodeId);
+      const toIndex = siblings.indexOf(overNodeId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+
+      const [moved] = siblings.splice(fromIndex, 1);
+      siblings.splice(toIndex, 0, moved);
+      return { ...prev, [parentId]: siblings };
+    });
+  };
 
   return (
     <aside className="left-column" ref={sidebarRef}>
@@ -60,14 +102,42 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
       <div className="tree-scroll">
         <OrgTreeNode
           nodeId="root"
+          parentId={null}
           level={0}
           activeNodeId={activeNodeId}
           expanded={expanded}
           query={query}
           openMenuNodeId={openMenuNodeId}
-          onSelect={(id) => { setOpenMenuNodeId(null); onSelectNode(id); }}
+          dragState={dragState}
+          onDragStart={(draggedNodeId, sourceParentId) => {
+            setOpenMenuNodeId(null);
+            setDragState({ draggedNodeId, sourceParentId, overNodeId: null });
+          }}
+          onDragOver={(overNodeId) => {
+            setDragState((prev) => ({ ...prev, overNodeId }));
+          }}
+          onDrop={(targetNodeId, targetParentId) => {
+            if (!dragState.draggedNodeId || !dragState.sourceParentId || !targetParentId) {
+              setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
+              return;
+            }
+            if (dragState.sourceParentId !== targetParentId) {
+              onAction('Можно менять порядок только в пределах одного уровня.');
+              setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
+              return;
+            }
+            reorderWithinLevel(targetParentId, dragState.draggedNodeId, targetNodeId);
+            onAction('Порядок обновлен');
+            setOpenMenuNodeId(null);
+            setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
+          }}
+          onDragEnd={() => setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null })}
+          onSelect={(id) => {
+            setOpenMenuNodeId(null);
+            onSelectNode(id);
+          }}
           onMenuAction={(nodeId, actionLabel) => {
-            const node = orgNodes[nodeId];
+            const node = orderedNodes[nodeId];
             if (actionLabel.includes('Добавить')) {
               const mappedType: AddEntityType = actionLabel.includes('сотрудника') ? 'employee' : 'department';
               onOpenAddModal(nodeId, mappedType);
@@ -79,10 +149,13 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
             setOpenMenuNodeId(null);
           }}
           onMenuToggle={(id) => setOpenMenuNodeId((prev) => (prev === id ? null : id))}
-          onToggle={(id) => { setOpenMenuNodeId(null); setExpanded((prev) => ({ ...prev, [id]: !prev[id] })); }}
+          onToggle={(id) => {
+            setOpenMenuNodeId(null);
+            setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+          }}
           menuItemsByType={menuItemsByType}
           nodeTypeLabel={nodeTypeLabel}
-          nodes={orgNodes}
+          nodes={orderedNodes}
         />
       </div>
     </aside>

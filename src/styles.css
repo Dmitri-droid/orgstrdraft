@@ -17,7 +17,7 @@ small, .muted { color: #666; }
 .tabs-inline, .tab-bar, .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .active { background: #dcdcdc; border-color: #8d8d8d; }
 
-.workspace-grid { display: grid; grid-template-columns: 300px 1fr 360px; gap: 8px; padding: 8px; height: calc(100vh - 64px); }
+.workspace-grid { display: grid; grid-template-columns: 300px 1fr 360px; gap: 8px; padding: 8px; height: 100vh; }
 .left-column, .center-column, .right-column { border: 1px solid #c8c8c8; background: #fff; overflow: auto; }
 .left-column { padding: 10px; }
 .tree-scroll { margin-top: 10px; }
@@ -39,6 +39,11 @@ small, .muted { color: #666; }
 .tree-menu { margin: 0 0 4px 32px; border: 1px solid #c8c8c8; background: #fff; display: flex; flex-direction: column; max-width: 210px; }
 .tree-menu button { border: none; border-bottom: 1px solid #ececec; text-align: left; background: #fff; }
 .tree-menu button:last-child { border-bottom: none; }
+
+.tree-drag-handle { border: 1px solid transparent; background: transparent; color: #777; cursor: grab; padding: 2px 4px; }
+.tree-drag-handle:hover, .tree-drag-handle:focus-visible { border-color: #a8a8a8; background: #f2f2f2; }
+.tree-node.dragging { opacity: 0.55; }
+.tree-node.drop-target { outline: 1px dashed #8c8c8c; outline-offset: -2px; }
 
 .center-column { display: flex; flex-direction: column; }
 .content-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px; border-bottom: 1px solid #d0d0d0; }

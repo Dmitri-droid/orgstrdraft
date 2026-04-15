@@ -5,8 +5,7 @@ button:hover { background: #f2f2f2; cursor: pointer; }
 .active { background: #dfdfdf; }
 .muted { color: #666; font-size: 12px; }
 
-.top { display: flex; gap: 8px; align-items: center; padding: 10px; border-bottom: 1px solid #c8c8c8; background: #fafafa; }
-.layout { display: grid; grid-template-columns: 300px 1fr 360px; gap: 8px; height: calc(100vh - 60px); padding: 8px; }
+.layout { display: grid; grid-template-columns: 300px 1fr 360px; gap: 8px; height: 100vh; padding: 8px; }
 .panel { border: 1px solid #c8c8c8; background: #fff; overflow: auto; }
 .left, .center, .right { padding: 10px; }
 .grow { flex: 1; }
@@ -25,6 +24,10 @@ button:hover { background: #f2f2f2; cursor: pointer; }
 .center-menu { right: 0; top: 34px; }
 .tree-menu button, .center-menu button { border: none; border-bottom: 1px solid #ececec; text-align: left; background: #fff; }
 .tree-menu button:last-child, .center-menu button:last-child { border-bottom: none; }
+.tree-drag-handle { border: 1px solid transparent; background: transparent; color: #777; cursor: grab; padding: 2px 4px; }
+.tree-drag-handle:hover { border-color: #a8a8a8; background: #f2f2f2; }
+.tree-node.dragging { opacity: 0.55; }
+.tree-node.drop-target { outline: 1px dashed #8c8c8c; outline-offset: -2px; }
 
 .header { display: flex; justify-content: space-between; border-bottom: 1px solid #d2d2d2; padding-bottom: 10px; margin-bottom: 10px; }
 .tabs { border-bottom: 1px solid #d2d2d2; padding-bottom: 8px; margin-bottom: 8px; }
