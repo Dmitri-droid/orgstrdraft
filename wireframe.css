@@ -48,3 +48,9 @@ button:hover { background: #f2f2f2; cursor: pointer; }
 .upload-placeholder { border: 1px dashed #bcbcbc; background: #fafafa; padding: 12px; color: #666; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .toast { position: fixed; right: 16px; bottom: 16px; background: #f0f0f0; border: 1px solid #555; padding: 10px; z-index: 60; }
+
+
+.row-main-hit { display: flex; align-items: center; gap: 8px; flex: 1; border: 1px solid transparent; padding: 4px; }
+.row-main-hit:hover { border-color: #b0b0b0; background: #f7f7f7; cursor: pointer; }
+.row-drag-handle { border: 1px solid transparent; background: transparent; color: #777; cursor: grab; padding: 2px 4px; }
+.row-drag-handle:hover { border-color: #a8a8a8; background: #f2f2f2; }

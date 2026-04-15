@@ -36,6 +36,13 @@ export function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalEntityType, setAddModalEntityType] = useState<AddEntityType>('employee');
   const [addModalContextNodeId, setAddModalContextNodeId] = useState(ROOT_ID);
+  const [employeeOrderByDepartment, setEmployeeOrderByDepartment] = useState<Record<string, string[]>>(() =>
+    employees.reduce<Record<string, string[]>>((acc, employee) => {
+      if (!acc[employee.departmentId]) acc[employee.departmentId] = [];
+      acc[employee.departmentId].push(employee.id);
+      return acc;
+    }, {}),
+  );
 
   const activeNode = orgNodes[activeNodeId];
   const breadcrumb = useMemo(() => getBreadcrumb(activeNodeId), [activeNodeId]);
@@ -81,10 +88,26 @@ export function App() {
     showToast(`Открыт основной чат: ${primaryChat.name}`);
   };
 
-  const scopedEmployees = employees.filter((item) => item.departmentId === activeNodeId);
+  const scopedEmployees = (employeeOrderByDepartment[activeNodeId] ?? [])
+    .map((id) => employees.find((employee) => employee.id === id))
+    .filter((employee): employee is NonNullable<typeof employee> => Boolean(employee));
   const scopedPositions = positions.filter((item) => item.departmentId === activeNodeId);
   const scopedChats = chats.filter((item) => item.departmentId === activeNodeId || item.nodeId === activeNodeId);
   const scopedFiles = files.filter((item) => item.departmentId === activeNodeId);
+
+
+  const reorderEmployeesInDepartment = (departmentId: string, draggedEmployeeId: string, targetEmployeeId: string) => {
+    setEmployeeOrderByDepartment((prev) => {
+      const list = [...(prev[departmentId] ?? [])];
+      const fromIndex = list.indexOf(draggedEmployeeId);
+      const toIndex = list.indexOf(targetEmployeeId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+      const [moved] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, moved);
+      return { ...prev, [departmentId]: list };
+    });
+    showToast('Порядок сотрудников обновлен');
+  };
 
   return (
     <div className="app-shell">
@@ -117,6 +140,7 @@ export function App() {
           selection={selection}
           onSelect={setSelection}
           onAction={showToast}
+          onReorderEmployees={(draggedId, targetId) => reorderEmployeesInDepartment(activeNodeId, draggedId, targetId)}
         />
         <DetailsPanel
           selection={selection}

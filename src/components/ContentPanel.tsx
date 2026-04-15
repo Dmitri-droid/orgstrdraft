@@ -21,6 +21,7 @@ interface Props {
   selection: Selection;
   onSelect: (selection: Selection) => void;
   onAction: (message: string) => void;
+  onReorderEmployees: (draggedEmployeeId: string, targetEmployeeId: string) => void;
 }
 
 const tabs: { key: TabType; label: string }[] = [
@@ -108,7 +109,7 @@ export function ContentPanel(props: Props) {
       </div>
 
       <div className="tab-content">
-        {activeTab === 'people' && <PeopleTab employees={props.employees} selection={props.selection} onSelect={props.onSelect} onAction={onAction} />}
+        {activeTab === 'people' && <PeopleTab employees={props.employees} selection={props.selection} onSelect={props.onSelect} onAction={onAction} onReorder={props.onReorderEmployees} />}
         {activeTab === 'positions' && <PositionsTab positions={props.positions} selection={props.selection} onSelect={props.onSelect} onAction={onAction} />}
         {activeTab === 'chats' && <ChatsTab chats={props.chats} selection={props.selection} onSelect={props.onSelect} onAction={onAction} />}
         {activeTab === 'files' && <FilesTab files={props.files} selection={props.selection} onSelect={props.onSelect} onAction={onAction} />}

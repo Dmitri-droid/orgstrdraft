@@ -55,12 +55,19 @@ const addTypes = { employee: 'Сотрудника', position: 'Должност
 const submitLabels = { employee: 'Добавить сотрудника', position: 'Добавить должность', department: 'Добавить подразделение', chat: 'Создать чат', file: 'Добавить файл' };
 
 const initialChildOrder = Object.fromEntries(Object.values(data.nodes).map((n) => [n.id, [...n.children]]));
+const initialEmployeeOrderByDepartment = data.people.reduce((acc, employee) => {
+  if (!acc[employee.dep]) acc[employee.dep] = [];
+  acc[employee.dep].push(employee.id);
+  return acc;
+}, {});
 
 const state = {
   node: 'root', tab: 'people', sel: { kind: 'node', id: 'root' }, exp: { root: true, hq: true, feo: true },
   openTreeMenuNodeId: null, isCenterMenuOpen: false, isAddModalOpen: false, addType: 'employee', addContextNodeId: 'root',
   childOrderByParent: initialChildOrder,
+  employeeOrderByDepartment: initialEmployeeOrderByDepartment,
   drag: { draggedNodeId: null, sourceParentId: null, overNodeId: null },
+  peopleDrag: { draggedEmployeeId: null, overEmployeeId: null },
 };
 
 const app = document.getElementById('app');
@@ -83,6 +90,17 @@ function openPrimaryChat(nodeId) {
 }
 
 function openAddModal(contextNodeId, type = 'employee') { state.isAddModalOpen = true; state.addType = type; state.addContextNodeId = contextNodeId; state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); }
+
+function reorderEmployeesInDepartment(departmentId, draggedEmployeeId, targetEmployeeId) {
+  const list = [...(state.employeeOrderByDepartment[departmentId] || [])];
+  const fromIndex = list.indexOf(draggedEmployeeId);
+  const toIndex = list.indexOf(targetEmployeeId);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return false;
+  const [moved] = list.splice(fromIndex, 1);
+  list.splice(toIndex, 0, moved);
+  state.employeeOrderByDepartment[departmentId] = list;
+  return true;
+}
 
 function reorderWithinLevel(parentId, draggedNodeId, targetNodeId) {
   const siblings = [...getChildren(parentId)];
@@ -128,12 +146,14 @@ function list(items, kind, template) { if (!items.length) return `<div class='em
 
 function centerContent() {
   const node = data.nodes[state.node];
-  const people = data.people.filter((x) => x.dep === state.node);
+  const people = (state.employeeOrderByDepartment[state.node] || [])
+    .map((id) => data.people.find((x) => x.id === id))
+    .filter(Boolean);
   const positions = data.positions.filter((x) => x.dep === state.node);
   const chats = data.chats.filter((x) => x.dep === state.node || x.nodeId === state.node);
   const files = data.files.filter((x) => x.dep === state.node);
   let content = '';
-  if (state.tab === 'people') content = `<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>` + list(people, 'employee', (x) => `<div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><button data-msg='${x.name}'>Написать</button>`);
+  if (state.tab === 'people') content = `<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>` + list(people, 'employee', (x) => `<button class='row-drag-handle' data-emp-drag='${x.id}' draggable='true'>⋮⋮</button><div class='row-main-hit' data-select-employee='${x.id}'><div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><span class='status'>${x.status}</span></div><button data-msg='${x.name}'>Написать</button>`);
   if (state.tab === 'positions') content = `<div class='row-actions'><input placeholder='Поиск должности'/><button>Все</button><button>Занятые</button><button>Вакантные</button></div>` + list(positions, 'position', (x) => `<div class='grow'><b>${x.title}</b><div>${x.status} · ${x.assignee}</div></div><button>${x.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button>`);
   if (state.tab === 'chats') content = list(chats, 'chat', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.participants} участников</div><small>${x.last}</small></div><button data-open-chat='${x.id}'>Открыть</button>`);
   if (state.tab === 'files') content = list(files, 'file', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.owner}</div></div><button data-open-file='${x.id}'>Открыть</button>`);
@@ -229,6 +249,51 @@ function bindInteractions() {
   app.querySelectorAll('[data-center-action]').forEach((btn) => btn.onclick = () => { const action = btn.dataset.centerAction; state.isCenterMenuOpen = false; if (action === 'Открыть чат') return openPrimaryChat(state.node); toast(`${action}: ${data.nodes[state.node].name}`); render(); });
   app.querySelectorAll('[data-tab]').forEach((btn) => btn.onclick = () => { state.tab = btn.dataset.tab; state.sel = { kind: 'node', id: state.node }; render(); });
   app.querySelectorAll('.list-row').forEach((row) => row.onclick = () => { state.sel = { kind: row.dataset.k, id: row.dataset.id }; render(); });
+  app.querySelectorAll('[data-select-employee]').forEach((body) => body.onclick = (e) => { e.stopPropagation(); state.sel = { kind: 'employee', id: body.dataset.selectEmployee }; render(); });
+
+  app.querySelectorAll('[data-emp-drag]').forEach((handle) => {
+    handle.ondragstart = (e) => {
+      const employeeId = handle.dataset.empDrag;
+      state.peopleDrag = { draggedEmployeeId: employeeId, overEmployeeId: null };
+      e.dataTransfer.setData('application/employee-row', JSON.stringify({ draggedEmployeeId: employeeId, departmentId: state.node }));
+      e.dataTransfer.effectAllowed = 'move';
+      const row = handle.closest('.list-row');
+      if (row) row.classList.add('dragging');
+    };
+    handle.ondragend = () => {
+      state.peopleDrag = { draggedEmployeeId: null, overEmployeeId: null };
+      render();
+    };
+  });
+
+  app.querySelectorAll('.list-row[data-k="employee"]').forEach((row) => {
+    row.ondragover = (e) => {
+      e.preventDefault();
+      row.classList.add('drop-target');
+    };
+    row.ondragleave = () => row.classList.remove('drop-target');
+    row.ondrop = (e) => {
+      e.preventDefault();
+      row.classList.remove('drop-target');
+      let payload = null;
+      const raw = e.dataTransfer.getData('application/employee-row');
+      if (raw) {
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          payload = null;
+        }
+      }
+      const targetEmployeeId = row.dataset.id;
+      const draggedEmployeeId = payload?.draggedEmployeeId || state.peopleDrag.draggedEmployeeId;
+      const departmentId = payload?.departmentId || state.node;
+      if (draggedEmployeeId && targetEmployeeId && draggedEmployeeId !== targetEmployeeId) {
+        if (reorderEmployeesInDepartment(departmentId, draggedEmployeeId, targetEmployeeId)) toast('Порядок сотрудников обновлен');
+      }
+      state.peopleDrag = { draggedEmployeeId: null, overEmployeeId: null };
+      render();
+    };
+  });
   app.querySelectorAll('[data-msg]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Написать: ${btn.dataset.msg}`); });
   app.querySelectorAll('[data-primary-chat]').forEach((btn) => btn.onclick = () => openPrimaryChat(btn.dataset.primaryChat));
   app.querySelectorAll('[data-open-chat]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const chat = data.chats.find((c) => c.id === btn.dataset.openChat); if (chat) toast(`Открыть чат: ${chat.name}`); });
