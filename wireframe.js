@@ -68,6 +68,14 @@ const state = {
   employeeOrderByDepartment: initialEmployeeOrderByDepartment,
   drag: { draggedNodeId: null, sourceParentId: null, overNodeId: null },
   peopleDrag: { draggedEmployeeId: null, overEmployeeId: null },
+  isStructureSettingsOpen: false,
+  isResetStructureConfirmOpen: false,
+  structureSettings: {
+    dragAndDropEnabled: true,
+    whoCanEdit: 'admins',
+    whoCanAddDepartments: 'admins_leads',
+    whoCanMoveNodes: 'admins',
+  },
 };
 
 const app = document.getElementById('app');
@@ -128,7 +136,7 @@ function renderTree(nodeId, parentId = null, level = 0) {
   return `
     <div class='tree-item-wrap'>
       <div class='tree-node ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}' style='padding-left:${12 + level * 16}px' data-drop-node='${nodeId}' data-drop-parent='${parentId || ''}'>
-        <button class='tree-drag-handle' data-drag-handle='${nodeId}' data-parent='${parentId || ''}' draggable='${parentId ? 'true' : 'false'}'>⋮⋮</button>
+        <button class='tree-drag-handle' data-drag-handle='${nodeId}' data-parent='${parentId || ''}' draggable='${parentId && state.structureSettings.dragAndDropEnabled ? 'true' : 'false'}'>⋮⋮</button>
         <button class='tree-control' data-chevron='${nodeId}'>${hasChildren ? (expanded ? '▾' : '▸') : '·'}</button>
         <button class='tree-main-hit ${selected ? 'selected' : ''}' data-select-node='${nodeId}'>
           <span>${node.icon}</span>
@@ -140,6 +148,10 @@ function renderTree(nodeId, parentId = null, level = 0) {
       ${childrenHtml}
     </div>
   `;
+}
+
+function resetStructureOrder() {
+  state.childOrderByParent = Object.fromEntries(Object.entries(initialChildOrder).map(([k, v]) => [k, [...v]]));
 }
 
 function list(items, kind, template) { if (!items.length) return `<div class='empty'>Пусто для выбранного узла.</div>`; return items.map((item) => `<div class='list-row ${state.sel.kind === kind && state.sel.id === item.id ? 'selected' : ''}' data-k='${kind}' data-id='${item.id}'>${template(item)}</div>`).join(''); }
@@ -159,7 +171,7 @@ function centerContent() {
   if (state.tab === 'files') content = list(files, 'file', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.owner}</div></div><button data-open-file='${x.id}'>Открыть</button>`);
   if (state.tab === 'about') content = `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
-  return `<div class='header'><div><div class='muted'>${breadcrumb(state.node)}</div><h2>${node.name}</h2><div class='muted'>${node.summary}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
+  return `<div class='header'><div><div class='muted'>${breadcrumb(state.node)}</div><h2>${node.name}</h2><div class='muted'>${node.summary}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
 function detailsContent() {
@@ -181,8 +193,13 @@ function modalContent() {
   return `<div class='modal-overlay' data-close-modal='1'><div class='modal'><div class='modal-header'><div><h3>Добавить в подразделение</h3><div class='muted'>Текущий контекст: ${node.name}</div></div><button data-close-modal='1'>✕</button></div><div class='entity-switcher'>${Object.entries(addTypes).map(([k, v]) => `<button class='${state.addType === k ? 'active' : ''}' data-add-type='${k}'>${v}</button>`).join('')}</div><div class='modal-form'>${form}</div><div class='modal-actions'><button data-close-modal='1'>Отмена</button><button data-submit-add='${state.addType}'>${submitLabels[state.addType]}</button></div></div></div>`;
 }
 
+function settingsDrawerContent() {
+  if (!state.isStructureSettingsOpen) return '';
+  return `<div class='drawer-overlay' data-close-structure-settings='1'><aside class='settings-drawer'><div class='drawer-header'><div><h3>Настройки оргструктуры</h3><div class='muted'>Параметры управления структурой компании</div></div><button data-close-structure-settings='1'>✕</button></div><div class='drawer-section'><label class='drawer-row'><span>Разрешить drag-and-drop</span><input type='checkbox' data-toggle-tree-dnd='1' ${state.structureSettings.dragAndDropEnabled ? 'checked' : ''}/></label></div><div class='drawer-section'>${!state.isResetStructureConfirmOpen ? `<button class='danger-outline' data-ask-reset-structure='1'>Сбросить порядок</button>` : `<div class='confirm-box'><div>Сбросить пользовательский порядок?</div><div class='row-actions'><button data-cancel-reset-structure='1'>Отмена</button><button class='danger-outline' data-confirm-reset-structure='1'>Сбросить</button></div></div>`}</div><div class='drawer-section'><label>Кто может редактировать структуру<select data-structure-permission='whoCanEdit'><option value='admins' ${state.structureSettings.whoCanEdit === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanEdit === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanEdit === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может добавлять подразделения<select data-structure-permission='whoCanAddDepartments'><option value='admins' ${state.structureSettings.whoCanAddDepartments === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanAddDepartments === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanAddDepartments === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может перемещать узлы<select data-structure-permission='whoCanMoveNodes'><option value='admins' ${state.structureSettings.whoCanMoveNodes === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanMoveNodes === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanMoveNodes === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div></aside></div>`;
+}
+
 function render() {
-  app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${modalContent()}`;
+  app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
 }
 
@@ -197,6 +214,10 @@ function bindInteractions() {
       const nodeId = handle.dataset.dragHandle;
       const parentId = handle.dataset.parent || null;
       if (!parentId) { e.preventDefault(); return; }
+      if (!state.structureSettings.dragAndDropEnabled) {
+        e.preventDefault();
+        return;
+      }
       state.drag = { draggedNodeId: nodeId, sourceParentId: parentId, overNodeId: null };
       state.openTreeMenuNodeId = null;
       e.dataTransfer.setData('application/org-node', JSON.stringify({ draggedNodeId: nodeId, sourceParentId: parentId }));
@@ -215,6 +236,7 @@ function bindInteractions() {
     zone.ondragleave = () => zone.classList.remove('drop-target');
     zone.ondrop = (e) => {
       e.preventDefault();
+      if (!state.structureSettings.dragAndDropEnabled) return;
       const targetNodeId = zone.dataset.dropNode;
       const targetParentId = zone.dataset.dropParent || null;
       let payload = null;
@@ -298,6 +320,31 @@ function bindInteractions() {
   app.querySelectorAll('[data-primary-chat]').forEach((btn) => btn.onclick = () => openPrimaryChat(btn.dataset.primaryChat));
   app.querySelectorAll('[data-open-chat]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const chat = data.chats.find((c) => c.id === btn.dataset.openChat); if (chat) toast(`Открыть чат: ${chat.name}`); });
   app.querySelectorAll('[data-open-file]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Открыть файл: ${btn.dataset.openFile}`); });
+  app.querySelectorAll('[data-open-structure-settings]').forEach((btn) => btn.onclick = () => { state.isStructureSettingsOpen = true; render(); });
+  app.querySelectorAll('[data-close-structure-settings]').forEach((btn) => btn.onclick = (e) => {
+    if (e.target === e.currentTarget || btn.dataset.closeStructureSettings === '1') {
+      state.isStructureSettingsOpen = false;
+      state.isResetStructureConfirmOpen = false;
+      render();
+    }
+  });
+  app.querySelectorAll('[data-toggle-tree-dnd]').forEach((input) => input.onchange = () => {
+    state.structureSettings.dragAndDropEnabled = input.checked;
+    toast(input.checked ? 'Drag-and-drop включен' : 'Drag-and-drop отключен');
+  });
+  app.querySelectorAll('[data-ask-reset-structure]').forEach((btn) => btn.onclick = () => { state.isResetStructureConfirmOpen = true; render(); });
+  app.querySelectorAll('[data-cancel-reset-structure]').forEach((btn) => btn.onclick = () => { state.isResetStructureConfirmOpen = false; render(); });
+  app.querySelectorAll('[data-confirm-reset-structure]').forEach((btn) => btn.onclick = () => {
+    resetStructureOrder();
+    state.isResetStructureConfirmOpen = false;
+    toast('Пользовательский порядок сброшен');
+    render();
+  });
+  app.querySelectorAll('[data-structure-permission]').forEach((select) => select.onchange = () => {
+    state.structureSettings[select.dataset.structurePermission] = select.value;
+    toast('Настройка обновлена');
+  });
+
   app.querySelectorAll('[data-open-add]').forEach((btn) => btn.onclick = () => openAddModal(btn.dataset.openAdd, 'employee'));
   app.querySelectorAll('[data-add-type]').forEach((btn) => btn.onclick = () => { state.addType = btn.dataset.addType; render(); });
   app.querySelectorAll('[data-close-modal]').forEach((btn) => btn.onclick = (e) => { if (e.target === e.currentTarget || btn.dataset.closeModal === '1') { state.isAddModalOpen = false; render(); } });
@@ -319,6 +366,7 @@ window.addEventListener('mousedown', (event) => {
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (state.isAddModalOpen) { state.isAddModalOpen = false; render(); return; }
+    if (state.isStructureSettingsOpen) { state.isStructureSettingsOpen = false; state.isResetStructureConfirmOpen = false; render(); return; }
     if (state.openTreeMenuNodeId || state.isCenterMenuOpen) { state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); }
   }
 });

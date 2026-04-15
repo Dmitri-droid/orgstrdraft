@@ -6,6 +6,8 @@ import { OrgTreeNode } from './OrgTreeNode';
 interface Props {
   activeNodeId: string;
   onSelectNode: (id: string) => void;
+  dragEnabled: boolean;
+  resetOrderSignal: number;
   onAction: (message: string) => void;
   onOpenAddModal: (nodeId: string, entityType?: AddEntityType) => void;
 }
@@ -27,7 +29,7 @@ const buildInitialOrder = (): Record<string, string[]> =>
     return acc;
   }, {});
 
-export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAddModal }: Props) {
+export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, onSelectNode, onAction, onOpenAddModal }: Props) {
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [openMenuNodeId, setOpenMenuNodeId] = useState<string | null>(null);
@@ -75,6 +77,13 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
     };
   }, [openMenuNodeId]);
 
+
+  useEffect(() => {
+    setChildOrderByParent(buildInitialOrder());
+    setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
+    setOpenMenuNodeId(null);
+  }, [resetOrderSignal]);
+
   const reorderWithinLevel = (parentId: string, draggedNodeId: string, overNodeId: string) => {
     setChildOrderByParent((prev) => {
       const siblings = [...(prev[parentId] ?? [])];
@@ -109,14 +118,18 @@ export function OrgTreeSidebar({ activeNodeId, onSelectNode, onAction, onOpenAdd
           query={query}
           openMenuNodeId={openMenuNodeId}
           dragState={dragState}
+          dragEnabled={dragEnabled}
           onDragStart={(draggedNodeId, sourceParentId) => {
+            if (!dragEnabled) return;
             setOpenMenuNodeId(null);
             setDragState({ draggedNodeId, sourceParentId, overNodeId: null });
           }}
           onDragOver={(overNodeId) => {
+            if (!dragEnabled) return;
             setDragState((prev) => ({ ...prev, overNodeId }));
           }}
           onDrop={(targetNodeId, targetParentId, payload) => {
+            if (!dragEnabled) return;
             const draggedNodeId = payload?.draggedNodeId ?? dragState.draggedNodeId;
             const sourceParentId = payload?.sourceParentId ?? dragState.sourceParentId;
 

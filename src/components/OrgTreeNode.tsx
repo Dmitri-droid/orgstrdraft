@@ -9,6 +9,7 @@ interface Props {
   query: string;
   openMenuNodeId: string | null;
   dragState: { draggedNodeId: string | null; sourceParentId: string | null; overNodeId: string | null };
+  dragEnabled: boolean;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onMenuToggle: (id: string) => void;
@@ -31,7 +32,7 @@ const nodeIcons: Record<OrgNode['type'], string> = {
   system: '☰',
 };
 
-export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, query, openMenuNodeId, dragState, onSelect, onToggle, onMenuToggle, onMenuAction, onDragStart, onDragOver, onDrop, onDragEnd, menuItemsByType, nodeTypeLabel, nodes }: Props) {
+export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, query, openMenuNodeId, dragState, dragEnabled, onSelect, onToggle, onMenuToggle, onMenuAction, onDragStart, onDragOver, onDrop, onDragEnd, menuItemsByType, nodeTypeLabel, nodes }: Props) {
   const node = nodes[nodeId];
   const isActive = activeNodeId === nodeId;
   const hasChildren = node.childrenIds.length > 0;
@@ -52,10 +53,12 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
         style={{ paddingLeft: `${12 + level * 16}px` }}
         onDragOver={(event) => {
           event.preventDefault();
+          if (!dragEnabled) return;
           onDragOver(nodeId);
         }}
         onDrop={(event) => {
           event.preventDefault();
+          if (!dragEnabled) return;
           let payload = undefined;
           const raw = event.dataTransfer.getData('application/org-node');
           if (raw) {
@@ -70,11 +73,12 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
       >
         {/* 0) Отдельная зона для drag-and-drop reorder */}
         <button
-          className="tree-drag-handle"
-          draggable={parentId !== null}
+          className={`tree-drag-handle ${dragEnabled ? '' : 'disabled'}`}
+          draggable={parentId !== null && dragEnabled}
           aria-label="Перетащить узел"
           onDragStart={(event) => {
             event.stopPropagation();
+            if (!dragEnabled) return;
             onDragStart(nodeId, parentId);
             event.dataTransfer.setData('application/org-node', JSON.stringify({ draggedNodeId: nodeId, sourceParentId: parentId }));
             event.dataTransfer.effectAllowed = 'move';
@@ -146,6 +150,7 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
           query={query}
           openMenuNodeId={openMenuNodeId}
           dragState={dragState}
+          dragEnabled={dragEnabled}
           onSelect={onSelect}
           onToggle={onToggle}
           onMenuToggle={onMenuToggle}

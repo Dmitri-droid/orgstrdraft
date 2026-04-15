@@ -4,6 +4,7 @@ import { AddEntityModal } from './components/AddEntityModal';
 import { ContentPanel } from './components/ContentPanel';
 import { DetailsPanel } from './components/DetailsPanel';
 import { OrgTreeSidebar } from './components/OrgTreeSidebar';
+import { StructureSettingsDrawer, StructureSettings } from './components/StructureSettingsDrawer';
 import { AddEntityType, Selection, TabType } from './types/models';
 
 const ROOT_ID = 'root';
@@ -28,7 +29,6 @@ const submitLabelByEntityType: Record<AddEntityType, string> = {
 };
 
 export function App() {
-  // Простая state-модель прототипа: текущий узел, таб и контекстное выделение.
   const [activeNodeId, setActiveNodeId] = useState(ROOT_ID);
   const [activeTab, setActiveTab] = useState<TabType>('people');
   const [selection, setSelection] = useState<Selection>({ kind: 'node', id: ROOT_ID });
@@ -43,6 +43,16 @@ export function App() {
       return acc;
     }, {}),
   );
+
+  const [isStructureSettingsOpen, setIsStructureSettingsOpen] = useState(false);
+  const [isResetStructureConfirmOpen, setIsResetStructureConfirmOpen] = useState(false);
+  const [resetStructureOrderSignal, setResetStructureOrderSignal] = useState(0);
+  const [structureSettings, setStructureSettings] = useState<StructureSettings>({
+    dragAndDropEnabled: true,
+    whoCanEdit: 'admins',
+    whoCanAddDepartments: 'admins_leads',
+    whoCanMoveNodes: 'admins',
+  });
 
   const activeNode = orgNodes[activeNodeId];
   const breadcrumb = useMemo(() => getBreadcrumb(activeNodeId), [activeNodeId]);
@@ -95,7 +105,6 @@ export function App() {
   const scopedChats = chats.filter((item) => item.departmentId === activeNodeId || item.nodeId === activeNodeId);
   const scopedFiles = files.filter((item) => item.departmentId === activeNodeId);
 
-
   const reorderEmployeesInDepartment = (departmentId: string, draggedEmployeeId: string, targetEmployeeId: string) => {
     setEmployeeOrderByDepartment((prev) => {
       const list = [...(prev[departmentId] ?? [])];
@@ -114,6 +123,8 @@ export function App() {
       <div className="workspace-grid">
         <OrgTreeSidebar
           activeNodeId={activeNodeId}
+          dragEnabled={structureSettings.dragAndDropEnabled}
+          resetOrderSignal={resetStructureOrderSignal}
           onAction={showToast}
           onOpenAddModal={openAddModal}
           onSelectNode={(id) => {
@@ -129,6 +140,7 @@ export function App() {
           activeTab={activeTab}
           onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
           onOpenAddModal={() => openAddModal(activeNodeId)}
+          onOpenStructureSettings={() => setIsStructureSettingsOpen(true)}
           onTabChange={(tab) => {
             setActiveTab(tab);
             setSelection({ kind: 'node', id: activeNodeId });
@@ -155,6 +167,31 @@ export function App() {
           onAction={showToast}
         />
       </div>
+
+      <StructureSettingsDrawer
+        isOpen={isStructureSettingsOpen}
+        settings={structureSettings}
+        isResetConfirmOpen={isResetStructureConfirmOpen}
+        onClose={() => {
+          setIsStructureSettingsOpen(false);
+          setIsResetStructureConfirmOpen(false);
+        }}
+        onToggleDrag={(value) => {
+          setStructureSettings((prev) => ({ ...prev, dragAndDropEnabled: value }));
+          showToast(value ? 'Drag-and-drop включен' : 'Drag-and-drop отключен');
+        }}
+        onChangePermission={(field, value) => {
+          setStructureSettings((prev) => ({ ...prev, [field]: value }));
+          showToast('Настройка обновлена');
+        }}
+        onAskResetOrder={() => setIsResetStructureConfirmOpen(true)}
+        onCancelResetOrder={() => setIsResetStructureConfirmOpen(false)}
+        onConfirmResetOrder={() => {
+          setResetStructureOrderSignal((prev) => prev + 1);
+          setIsResetStructureConfirmOpen(false);
+          showToast('Пользовательский порядок сброшен');
+        }}
+      />
 
       <AddEntityModal
         isOpen={isAddModalOpen}

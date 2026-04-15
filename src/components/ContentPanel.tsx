@@ -14,6 +14,7 @@ interface Props {
   onTabChange: (tab: TabType) => void;
   onPrimaryChatOpen: () => void;
   onOpenAddModal: () => void;
+  onOpenStructureSettings: () => void;
   employees: Employee[];
   positions: Position[];
   chats: DepartmentChat[];
@@ -42,7 +43,7 @@ const centerMenuByType: Record<OrgNode['type'], string[]> = {
 };
 
 export function ContentPanel(props: Props) {
-  const { node, breadcrumb, nodeTypeLabel, activeTab, onTabChange, onPrimaryChatOpen, onOpenAddModal, onAction } = props;
+  const { node, breadcrumb, nodeTypeLabel, activeTab, onTabChange, onPrimaryChatOpen, onOpenAddModal, onOpenStructureSettings, onAction } = props;
   const [isCenterActionsMenuOpen, setIsCenterActionsMenuOpen] = useState(false);
   const centerMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,6 +76,7 @@ export function ContentPanel(props: Props) {
         <div className="actions-row">
           <button onClick={onPrimaryChatOpen}>Открыть чат</button>
           <button onClick={onOpenAddModal}>Добавить</button>
+          <button onClick={onOpenStructureSettings}>Настроить структуру</button>
           <div className="menu-anchor" ref={centerMenuRef}>
             <button onClick={() => setIsCenterActionsMenuOpen((prev) => !prev)}>Еще</button>
             {isCenterActionsMenuOpen && (
