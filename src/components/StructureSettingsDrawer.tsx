@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type StructurePermission = 'admins' | 'admins_leads' | 'all_managers';
 
@@ -38,6 +38,35 @@ export function StructureSettingsDrawer({
   onCancelResetOrder,
   onConfirmResetOrder,
 }: Props) {
+  const closeTimerRef = useRef<number | null>(null);
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
+    if (isOpen) {
+      setShouldRender(true);
+      window.requestAnimationFrame(() => setIsVisible(true));
+      return;
+    }
+
+    setIsVisible(false);
+    closeTimerRef.current = window.setTimeout(() => {
+      setShouldRender(false);
+      closeTimerRef.current = null;
+    }, 180);
+  }, [isOpen]);
+
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -47,10 +76,15 @@ export function StructureSettingsDrawer({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return (
-    <div className="drawer-overlay" onClick={onClose}>
+    <div
+      className={`drawer-overlay ${isVisible ? 'open' : 'closing'}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <aside className="settings-drawer" onClick={(event) => event.stopPropagation()}>
         <div className="drawer-header">
           <div>
@@ -63,7 +97,16 @@ export function StructureSettingsDrawer({
         <div className="drawer-section">
           <label className="drawer-row">
             <span>Разрешить drag-and-drop</span>
-            <input type="checkbox" checked={settings.dragAndDropEnabled} onChange={(event) => onToggleDrag(event.target.checked)} />
+            <button
+              type="button"
+              className={`toggle-switch ${settings.dragAndDropEnabled ? 'on' : 'off'}`}
+              role="switch"
+              aria-checked={settings.dragAndDropEnabled}
+              onClick={() => onToggleDrag(!settings.dragAndDropEnabled)}
+            >
+              <span className="toggle-thumb" />
+              <span className="toggle-label">{settings.dragAndDropEnabled ? 'Вкл' : 'Выкл'}</span>
+            </button>
           </label>
         </div>
 

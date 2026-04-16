@@ -69,6 +69,7 @@ const state = {
   drag: { draggedNodeId: null, sourceParentId: null, overNodeId: null },
   peopleDrag: { draggedEmployeeId: null, overEmployeeId: null },
   isStructureSettingsOpen: false,
+  isStructureSettingsClosing: false,
   isResetStructureConfirmOpen: false,
   structureSettings: {
     dragAndDropEnabled: true,
@@ -77,6 +78,7 @@ const state = {
     whoCanMoveNodes: 'admins',
   },
 };
+let drawerCloseTimerId = null;
 
 const app = document.getElementById('app');
 const getChildren = (parentId) => state.childOrderByParent[parentId] || [];
@@ -98,6 +100,32 @@ function openPrimaryChat(nodeId) {
 }
 
 function openAddModal(contextNodeId, type = 'employee') { state.isAddModalOpen = true; state.addType = type; state.addContextNodeId = contextNodeId; state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); }
+
+function openStructureSettings() {
+  if (drawerCloseTimerId !== null) {
+    window.clearTimeout(drawerCloseTimerId);
+    drawerCloseTimerId = null;
+  }
+  state.isStructureSettingsOpen = true;
+  state.isStructureSettingsClosing = false;
+  render();
+}
+
+function closeStructureSettings() {
+  if (!state.isStructureSettingsOpen) return;
+  if (drawerCloseTimerId !== null) {
+    window.clearTimeout(drawerCloseTimerId);
+  }
+  state.isStructureSettingsClosing = true;
+  render();
+  drawerCloseTimerId = window.setTimeout(() => {
+    state.isStructureSettingsOpen = false;
+    state.isStructureSettingsClosing = false;
+    state.isResetStructureConfirmOpen = false;
+    drawerCloseTimerId = null;
+    render();
+  }, 180);
+}
 
 function reorderEmployeesInDepartment(departmentId, draggedEmployeeId, targetEmployeeId) {
   const list = [...(state.employeeOrderByDepartment[departmentId] || [])];
@@ -195,7 +223,7 @@ function modalContent() {
 
 function settingsDrawerContent() {
   if (!state.isStructureSettingsOpen) return '';
-  return `<div class='drawer-overlay' data-close-structure-settings='1'><aside class='settings-drawer'><div class='drawer-header'><div><h3>Настройки оргструктуры</h3><div class='muted'>Параметры управления структурой компании</div></div><button data-close-structure-settings='1'>✕</button></div><div class='drawer-section'><label class='drawer-row'><span>Разрешить drag-and-drop</span><input type='checkbox' data-toggle-tree-dnd='1' ${state.structureSettings.dragAndDropEnabled ? 'checked' : ''}/></label></div><div class='drawer-section'>${!state.isResetStructureConfirmOpen ? `<button class='danger-outline' data-ask-reset-structure='1'>Сбросить порядок</button>` : `<div class='confirm-box'><div>Сбросить пользовательский порядок?</div><div class='row-actions'><button data-cancel-reset-structure='1'>Отмена</button><button class='danger-outline' data-confirm-reset-structure='1'>Сбросить</button></div></div>`}</div><div class='drawer-section'><label>Кто может редактировать структуру<select data-structure-permission='whoCanEdit'><option value='admins' ${state.structureSettings.whoCanEdit === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanEdit === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanEdit === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может добавлять подразделения<select data-structure-permission='whoCanAddDepartments'><option value='admins' ${state.structureSettings.whoCanAddDepartments === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanAddDepartments === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanAddDepartments === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может перемещать узлы<select data-structure-permission='whoCanMoveNodes'><option value='admins' ${state.structureSettings.whoCanMoveNodes === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanMoveNodes === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanMoveNodes === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div></aside></div>`;
+  return `<div class='drawer-overlay ${state.isStructureSettingsClosing ? 'closing' : 'open'}' data-close-structure-settings='1'><aside class='settings-drawer'><div class='drawer-header'><div><h3>Настройки оргструктуры</h3><div class='muted'>Параметры управления структурой компании</div></div><button data-close-structure-settings='1'>✕</button></div><div class='drawer-section'><label class='drawer-row'><span>Разрешить drag-and-drop</span><button type='button' class='toggle-switch ${state.structureSettings.dragAndDropEnabled ? 'on' : 'off'}' role='switch' aria-checked='${state.structureSettings.dragAndDropEnabled ? 'true' : 'false'}' data-toggle-tree-dnd='1'><span class='toggle-thumb'></span><span class='toggle-label'>${state.structureSettings.dragAndDropEnabled ? 'Вкл' : 'Выкл'}</span></button></label></div><div class='drawer-section'>${!state.isResetStructureConfirmOpen ? `<button class='danger-outline' data-ask-reset-structure='1'>Сбросить порядок</button>` : `<div class='confirm-box'><div>Сбросить пользовательский порядок?</div><div class='row-actions'><button data-cancel-reset-structure='1'>Отмена</button><button class='danger-outline' data-confirm-reset-structure='1'>Сбросить</button></div></div>`}</div><div class='drawer-section'><label>Кто может редактировать структуру<select data-structure-permission='whoCanEdit'><option value='admins' ${state.structureSettings.whoCanEdit === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanEdit === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanEdit === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может добавлять подразделения<select data-structure-permission='whoCanAddDepartments'><option value='admins' ${state.structureSettings.whoCanAddDepartments === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanAddDepartments === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanAddDepartments === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может перемещать узлы<select data-structure-permission='whoCanMoveNodes'><option value='admins' ${state.structureSettings.whoCanMoveNodes === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanMoveNodes === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanMoveNodes === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div></aside></div>`;
 }
 
 function render() {
@@ -320,17 +348,16 @@ function bindInteractions() {
   app.querySelectorAll('[data-primary-chat]').forEach((btn) => btn.onclick = () => openPrimaryChat(btn.dataset.primaryChat));
   app.querySelectorAll('[data-open-chat]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const chat = data.chats.find((c) => c.id === btn.dataset.openChat); if (chat) toast(`Открыть чат: ${chat.name}`); });
   app.querySelectorAll('[data-open-file]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Открыть файл: ${btn.dataset.openFile}`); });
-  app.querySelectorAll('[data-open-structure-settings]').forEach((btn) => btn.onclick = () => { state.isStructureSettingsOpen = true; render(); });
+  app.querySelectorAll('[data-open-structure-settings]').forEach((btn) => btn.onclick = () => openStructureSettings());
   app.querySelectorAll('[data-close-structure-settings]').forEach((btn) => btn.onclick = (e) => {
-    if (e.target === e.currentTarget || btn.dataset.closeStructureSettings === '1') {
-      state.isStructureSettingsOpen = false;
-      state.isResetStructureConfirmOpen = false;
-      render();
-    }
+    const target = e.target;
+    if (target.closest('.settings-drawer') && btn.classList.contains('drawer-overlay')) return;
+    if (e.target === e.currentTarget || btn.dataset.closeStructureSettings === '1') closeStructureSettings();
   });
-  app.querySelectorAll('[data-toggle-tree-dnd]').forEach((input) => input.onchange = () => {
-    state.structureSettings.dragAndDropEnabled = input.checked;
-    toast(input.checked ? 'Drag-and-drop включен' : 'Drag-and-drop отключен');
+  app.querySelectorAll('[data-toggle-tree-dnd]').forEach((toggleButton) => toggleButton.onclick = () => {
+    state.structureSettings.dragAndDropEnabled = !state.structureSettings.dragAndDropEnabled;
+    toast(state.structureSettings.dragAndDropEnabled ? 'Drag-and-drop включен' : 'Drag-and-drop отключен');
+    render();
   });
   app.querySelectorAll('[data-ask-reset-structure]').forEach((btn) => btn.onclick = () => { state.isResetStructureConfirmOpen = true; render(); });
   app.querySelectorAll('[data-cancel-reset-structure]').forEach((btn) => btn.onclick = () => { state.isResetStructureConfirmOpen = false; render(); });
@@ -366,7 +393,7 @@ window.addEventListener('mousedown', (event) => {
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (state.isAddModalOpen) { state.isAddModalOpen = false; render(); return; }
-    if (state.isStructureSettingsOpen) { state.isStructureSettingsOpen = false; state.isResetStructureConfirmOpen = false; render(); return; }
+    if (state.isStructureSettingsOpen) { closeStructureSettings(); return; }
     if (state.openTreeMenuNodeId || state.isCenterMenuOpen) { state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); }
   }
 });
