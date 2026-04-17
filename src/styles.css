@@ -63,6 +63,25 @@ small, .muted { color: #666; }
 .right-column { padding: 12px; }
 .card { border: 1px solid #d0d0d0; padding: 12px; background: #fbfbfb; }
 .toast { position: fixed; right: 20px; bottom: 16px; border: 1px solid #666; background: #f0f0f0; padding: 10px 12px; }
+.details-rich-card { display: flex; flex-direction: column; gap: 10px; }
+.details-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.details-head-main { display: flex; gap: 8px; align-items: flex-start; }
+.details-node-icon { width: 18px; display: inline-flex; justify-content: center; color: #555; }
+.details-section { border: 1px solid #d5d5d5; background: #fff; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.details-section h4 { margin: 0; font-size: 13px; }
+.leader-card { border: 1px solid #d8d8d8; background: #fdfdfd; padding: 8px; display: flex; gap: 8px; align-items: flex-start; }
+.subtle-box { border: 1px dashed #c8c8c8; padding: 8px; background: #fcfcfc; display: flex; flex-direction: column; gap: 4px; }
+.link-btn { border: none; background: transparent; color: #444; text-decoration: underline; padding: 0; width: fit-content; }
+.link-btn:hover { background: transparent; color: #111; }
+.details-list-stack { display: flex; flex-direction: column; gap: 6px; }
+.link-row { display: flex; justify-content: space-between; align-items: center; text-align: left; width: 100%; }
+.wire-badge { border: 1px solid #b0b0b0; background: #f2f2f2; font-size: 11px; padding: 1px 6px; margin-left: 6px; border-radius: 999px; }
+.child-accordion { border: 1px solid #d0d0d0; background: #fff; }
+.child-accordion-head { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: none; border-bottom: 1px solid #ececec; background: #fff; }
+.child-accordion-head:hover { background: #f7f7f7; }
+.child-accordion-body { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.chevron { display: inline-flex; transition: transform 140ms ease; color: #555; }
+.chevron.open { transform: rotate(180deg); }
 
 
 .menu-anchor { position: relative; }

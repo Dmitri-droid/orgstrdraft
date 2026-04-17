@@ -77,8 +77,41 @@ const state = {
     whoCanAddDepartments: 'admins_leads',
     whoCanMoveNodes: 'admins',
   },
+  detailsExpandedChildIds: {},
 };
 let drawerCloseTimerId = null;
+const childPreviewByNodeId = {
+  'feo-b': {
+    label: 'Штаб ФЭО-Б',
+    employees: 12,
+    primaryChatLabel: 'Основной чат',
+    participants: 12,
+    linkedChats: ['Отчётность ФЭО', 'Методология бюджета'],
+    employeeNames: ['Александров М.', 'Беляева О.', 'Волков С.'],
+    files: 8,
+    fileExamples: ['Отчёт Q1.xlsx', 'Бюджет_черновик.docx'],
+  },
+  'feo-a': {
+    label: 'Группа планирования',
+    employees: 8,
+    primaryChatLabel: 'Основной чат',
+    participants: 8,
+    linkedChats: ['Планирование 2024', 'Сценарии'],
+    employeeNames: ['Громова А.', 'Дмитриев И.', 'Кузнецова М.'],
+    files: 6,
+    fileExamples: ['План продаж.xlsx', 'Прогноз ФЭО.pdf'],
+  },
+  plan3: {
+    label: 'Планерки 3',
+    employees: 5,
+    primaryChatLabel: 'Планерка ФЭО',
+    participants: 5,
+    linkedChats: ['Планерка ФЭО'],
+    employeeNames: ['Иванов П.', 'Павлова Л.', 'Сидоров К.'],
+    files: 4,
+    fileExamples: ['Повестка 12.03.2024.docx', 'Протокол 05.03.2024.pdf'],
+  },
+};
 
 const app = document.getElementById('app');
 const getChildren = (parentId) => state.childOrderByParent[parentId] || [];
@@ -208,7 +241,30 @@ function detailsContent() {
   if (s.kind === 'position') { const p = data.positions.find((x) => x.id === s.id); if (!p) return ''; return `<div class='card'><h3>${p.title}</h3><p>${p.status}</p><p>${p.assignee}</p><button>Назначить сотрудника</button></div>`; }
   if (s.kind === 'chat') { const c = data.chats.find((x) => x.id === s.id); if (!c) return ''; return `<div class='card'><h3>${c.name}</h3><p>${c.type}</p><button data-open-chat='${c.id}'>Открыть</button></div>`; }
   if (s.kind === 'file') { const f = data.files.find((x) => x.id === s.id); if (!f) return ''; return `<div class='card'><h3>${f.name}</h3><p>${f.type}</p><button data-open-file='${f.id}'>Открыть</button></div>`; }
-  return `<div class='card'><h3>${node.name}</h3><p>${node.typeLabel}</p><p>${node.desc}</p><p>Руководитель: ${node.leader}</p><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div>`;
+  const parentNode = node.parent ? data.nodes[node.parent] : null;
+  const primaryChat = data.chats.find((chat) => chat.id === node.primaryChatId) || data.chats.find((chat) => chat.dep === node.id);
+  const relatedChats = data.chats.filter((chat) => chat.dep === node.id && (!primaryChat || chat.id !== primaryChat.id));
+  const relatedFiles = data.files.filter((file) => file.dep === node.id);
+  const childIds = node.children.filter((childId) => childPreviewByNodeId[childId]);
+  const childBlocks = childIds.map((childId) => {
+    const child = childPreviewByNodeId[childId];
+    const expanded = !!state.detailsExpandedChildIds[childId];
+    const extraCount = Math.max(child.employees - child.employeeNames.length, 1);
+    return `<div class='child-accordion'><button class='child-accordion-head' data-toggle-details-child='${childId}'><span class='details-node-icon'>${childId === 'plan3' ? '💬' : '▦'}</span><span class='grow'><b>${child.label}</b><div class='muted'>${child.employees} сотрудников</div></span><span class='chevron ${expanded ? 'open' : ''}'>▾</span></button>${expanded ? `<div class='child-accordion-body'><div><b>${child.primaryChatLabel}</b> · ${child.participants} участников</div><div><b>Связанные чаты</b> · ${child.linkedChats.join(' · ')}</div><div><b>Сотрудники</b> · ${child.employees}</div><div>${child.employeeNames.join(', ')} и ещё ${extraCount}</div><div><b>Файлы</b> · ${child.files}</div><div>например: ${child.fileExamples.join(', ')}</div></div>` : ''}</div>`;
+  }).join('');
+  const relatedChatRows = (relatedChats.length ? relatedChats : [
+    { id: 'rc1', name: 'Общий чат ФЭО', participants: 52 },
+    { id: 'rc2', name: 'Руководители ФЭО', participants: 7 },
+    { id: 'rc3', name: 'Планерка ФЭО', participants: 18 },
+  ]).map((chat) => `<button class='link-row' data-open-chat='${chat.id}'><span>${chat.name}</span><small>${chat.participants} участников</small></button>`).join('');
+  const fileRows = (relatedFiles.length ? relatedFiles : [
+    { id: 'df1', name: 'Регламент работы ФЭО.pdf', updatedAt: '12.03.2024', type: '1.2 МБ' },
+    { id: 'df2', name: 'Шаблон отчёта.xlsx', updatedAt: '01.02.2024', type: '96 КБ' },
+  ]).slice(0, 2).map((file) => `<div class='subtle-box'><b>${file.name}</b><small>${Object.prototype.hasOwnProperty.call(file, 'fileType') ? file.fileType : file.type} · обновлён ${file.updatedAt}</small></div>`).join('');
+  const leaderTitle = node.id === 'feo' ? 'Руководитель штаба ФЭО' : 'Руководитель подразделения';
+  const icon = node.type === 'chat' ? '💬' : node.type === 'company' ? '🏢' : '▦';
+
+  return `<div class='card details-rich-card'><div class='details-head'><div class='details-head-main'><span class='details-node-icon'>${icon}</span><div><h3>${node.name}</h3><small>${node.typeLabel}</small></div></div><button data-close-details='1'>✕</button></div><div class='details-section'><p>${node.id === 'feo' ? 'Финансово-экономическое обеспечение деятельности компании. Планирование, анализ, отчетность.' : node.desc}</p></div><div class='details-section'><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-show-in-structure='${node.id}'>Показать в структуре</button><button data-msg='${node.leader}'>Написать руководителю</button></div></div><div class='details-section'><h4>Руководитель</h4><div class='leader-card'><div class='avatar'>${node.leader.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${node.leader}</b><div class='muted'>${leaderTitle}</div><button class='link-btn' data-open-profile='${node.leader}'>Открыть профиль</button></div><div class='row-actions'><button data-msg='${node.leader}'>✉</button><button data-quick-leader='${node.leader}'>⋯</button></div></div></div>${parentNode ? `<div class='details-section'><h4>Подчиняется / входит в</h4><div class='subtle-box'><b>${parentNode.name}</b><button class='link-btn' data-show-in-structure='${parentNode.id}'>Показать в структуре</button></div></div>` : ''}<div class='details-section'><h4>Подчинённые подразделения (${childIds.length})</h4><div class='details-list-stack'>${childBlocks || "<div class='empty'>Нет дочерних подразделений.</div>"}</div></div><div class='details-section'><h4>Основной чат</h4><div class='subtle-box'><div><b>${primaryChat ? primaryChat.name : `Чат ${node.name}`}</b><span class='wire-badge'>основной</span></div><div class='muted'>${primaryChat ? primaryChat.participants : 38} участников</div><button data-primary-chat='${node.id}'>Открыть чат</button></div></div><div class='details-section'><h4>Связанные чаты</h4><div class='details-list-stack'>${relatedChatRows}<button class='link-btn' data-open-all-chats='${node.id}'>Смотреть все</button></div></div><div class='details-section'><h4>Файлы и документы</h4><div class='details-list-stack'><div class='subtle-box'><b>Бюджет и планирование</b><small>24 файла</small></div>${fileRows}<button data-open-file-section='${node.id}'>Открыть раздел</button></div></div><div class='details-section'><h4>Быстрые действия</h4><div class='details-list-stack'><button data-primary-chat='${node.id}'>Открыть основной чат</button><button data-open-people='${node.id}'>Перейти к сотрудникам</button><button data-history='${node.id}'>Показать историю изменений</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div></div>`;
 }
 
 function modalContent() {
@@ -345,6 +401,29 @@ function bindInteractions() {
     };
   });
   app.querySelectorAll('[data-msg]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Написать: ${btn.dataset.msg}`); });
+  app.querySelectorAll('[data-close-details]').forEach((btn) => btn.onclick = () => toast('Карточка свернута (mock)'));
+  app.querySelectorAll('[data-show-in-structure]').forEach((btn) => btn.onclick = () => {
+    const nodeId = btn.dataset.showInStructure;
+    if (data.nodes[nodeId]) state.node = nodeId;
+    state.sel = { kind: 'node', id: state.node };
+    toast(`Показано в структуре: ${data.nodes[state.node].name}`);
+    render();
+  });
+  app.querySelectorAll('[data-open-profile]').forEach((btn) => btn.onclick = () => toast(`Открыть профиль: ${btn.dataset.openProfile}`));
+  app.querySelectorAll('[data-quick-leader]').forEach((btn) => btn.onclick = () => toast(`Быстрые действия: ${btn.dataset.quickLeader}`));
+  app.querySelectorAll('[data-open-all-chats]').forEach((btn) => btn.onclick = () => toast(`Смотреть все чаты: ${btn.dataset.openAllChats}`));
+  app.querySelectorAll('[data-open-file-section]').forEach((btn) => btn.onclick = () => toast(`Открыть раздел файлов: ${btn.dataset.openFileSection}`));
+  app.querySelectorAll('[data-open-people]').forEach((btn) => btn.onclick = () => {
+    state.tab = 'people';
+    state.sel = { kind: 'node', id: btn.dataset.openPeople };
+    render();
+  });
+  app.querySelectorAll('[data-history]').forEach((btn) => btn.onclick = () => toast(`История изменений: ${btn.dataset.history}`));
+  app.querySelectorAll('[data-toggle-details-child]').forEach((btn) => btn.onclick = () => {
+    const childId = btn.dataset.toggleDetailsChild;
+    state.detailsExpandedChildIds[childId] = !state.detailsExpandedChildIds[childId];
+    render();
+  });
   app.querySelectorAll('[data-primary-chat]').forEach((btn) => btn.onclick = () => openPrimaryChat(btn.dataset.primaryChat));
   app.querySelectorAll('[data-open-chat]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const chat = data.chats.find((c) => c.id === btn.dataset.openChat); if (chat) toast(`Открыть чат: ${chat.name}`); });
   app.querySelectorAll('[data-open-file]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Открыть файл: ${btn.dataset.openFile}`); });
