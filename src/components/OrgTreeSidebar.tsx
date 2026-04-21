@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { nodeTypeLabel, orgNodes } from '../data/mockData';
 import { AddEntityType, OrgNode } from '../types/models';
 import { OrgTreeNode } from './OrgTreeNode';
@@ -46,6 +46,16 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
   const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
   const handledRevealRef = useRef<string | null>(null);
 
+  const normalInteractionScrollTopRef = useRef<number | null>(null);
+
+  const captureNormalInteractionScroll = () => {
+    if (pendingRevealNodeId) return;
+    const currentScrollTop = sidebarRef.current?.scrollTop;
+    if (typeof currentScrollTop === 'number') {
+      normalInteractionScrollTopRef.current = currentScrollTop;
+    }
+  };
+
   const orderedNodes = useMemo<Record<string, OrgNode>>(
     () =>
       Object.fromEntries(
@@ -59,6 +69,20 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
       ),
     [childOrderByParent],
   );
+
+
+  useLayoutEffect(() => {
+    const preservedScrollTop = normalInteractionScrollTopRef.current;
+    if (preservedScrollTop === null) return;
+    if (pendingRevealNodeId) {
+      normalInteractionScrollTopRef.current = null;
+      return;
+    }
+    if (sidebarRef.current) {
+      sidebarRef.current.scrollTop = preservedScrollTop;
+    }
+    normalInteractionScrollTopRef.current = null;
+  }, [activeNodeId, openMenuNodeId, expanded, childOrderByParent, dragState, pendingRevealNodeId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -92,6 +116,7 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
     if (!pendingRevealNodeId || !orderedNodes[pendingRevealNodeId]) return;
     if (handledRevealRef.current === pendingRevealNodeId) return;
     handledRevealRef.current = pendingRevealNodeId;
+    normalInteractionScrollTopRef.current = null;
 
     const path: string[] = [];
     let current: string | null = pendingRevealNodeId;
@@ -158,11 +183,13 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
           dragEnabled={dragEnabled}
           onDragStart={(draggedNodeId, sourceParentId) => {
             if (!dragEnabled) return;
+            captureNormalInteractionScroll();
             setOpenMenuNodeId(null);
             setDragState({ draggedNodeId, sourceParentId, overNodeId: null });
           }}
           onDragOver={(overNodeId) => {
             if (!dragEnabled) return;
+            captureNormalInteractionScroll();
             setDragState((prev) => ({ ...prev, overNodeId }));
           }}
           onDrop={(targetNodeId, targetParentId, payload) => {
@@ -170,6 +197,7 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
             const draggedNodeId = payload?.draggedNodeId ?? dragState.draggedNodeId;
             const sourceParentId = payload?.sourceParentId ?? dragState.sourceParentId;
 
+            captureNormalInteractionScroll();
             if (!draggedNodeId || !sourceParentId || !targetParentId) {
               setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
               return;
@@ -184,16 +212,14 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
             setOpenMenuNodeId(null);
             setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
           }}
-          onDragEnd={() => setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null })}
+          onDragEnd={() => {
+            captureNormalInteractionScroll();
+            setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
+          }}
           onSelect={(id) => {
-            const prevScrollTop = sidebarRef.current?.scrollTop ?? null;
+            captureNormalInteractionScroll();
             setOpenMenuNodeId(null);
             onSelectNode(id);
-            window.requestAnimationFrame(() => {
-              if (prevScrollTop === null) return;
-              if (pendingRevealNodeId) return;
-              if (sidebarRef.current) sidebarRef.current.scrollTop = prevScrollTop;
-            });
           }}
           onMenuAction={(nodeId, actionLabel) => {
             const node = orderedNodes[nodeId];
@@ -205,10 +231,15 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
             } else {
               onAction(`${actionLabel}: ${node.name}`);
             }
+            captureNormalInteractionScroll();
             setOpenMenuNodeId(null);
           }}
-          onMenuToggle={(id) => setOpenMenuNodeId((prev) => (prev === id ? null : id))}
+          onMenuToggle={(id) => {
+            captureNormalInteractionScroll();
+            setOpenMenuNodeId((prev) => (prev === id ? null : id));
+          }}
           onToggle={(id) => {
+            captureNormalInteractionScroll();
             setOpenMenuNodeId(null);
             setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
           }}

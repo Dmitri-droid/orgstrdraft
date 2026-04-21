@@ -477,33 +477,35 @@ function historyDrawerContent() {
   return `<div class='drawer-overlay open' data-close-history='1'><aside class='settings-drawer history-drawer'><div class='drawer-header'><div><h3>История изменений</h3><div class='muted'>Журнал изменений по подразделению и связанным сущностям</div><div class='muted'>Подразделение: ${activeNode.name}</div></div><button data-close-history='1'>✕</button></div><div class='drawer-section'><div class='chips'>${filterButtons}</div></div><div class='drawer-section history-list'>${rows}</div></aside></div>`;
 }
 
-function render() {
+function render({ preserveTreeScroll = false } = {}) {
+  const previousTreeScrollTop = preserveTreeScroll ? app.querySelector('.panel.left')?.scrollTop ?? null : null;
   app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
+  if (preserveTreeScroll && state.pendingRevealNodeId === null && previousTreeScrollTop !== null) {
+    const currentTreePanel = app.querySelector('.panel.left');
+    if (currentTreePanel) currentTreePanel.scrollTop = previousTreeScrollTop;
+  }
   processPendingReveal();
 }
 
+function renderForTreeInteraction() {
+  render({ preserveTreeScroll: true });
+}
+
 function bindInteractions() {
-  app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; render(); });
+  app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; renderForTreeInteraction(); });
   app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => {
     const id = btn.dataset.selectNode;
-    const leftPanel = app.querySelector('.panel.left');
-    const prevScrollTop = leftPanel ? leftPanel.scrollTop : null;
     state.node = id;
     state.sel = { kind: 'node', id };
     state.tab = data.nodes[id].type === 'chat' ? 'chats' : 'people';
     state.openTreeMenuNodeId = null;
     state.isCenterMenuOpen = false;
     state.pendingRevealNodeId = null;
-    render();
-    window.requestAnimationFrame(() => {
-      if (prevScrollTop === null) return;
-      const currentLeftPanel = app.querySelector('.panel.left');
-      if (currentLeftPanel) currentLeftPanel.scrollTop = prevScrollTop;
-    });
+    renderForTreeInteraction();
   });
-  app.querySelectorAll('[data-open-tree-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.openTreeMenu; state.openTreeMenuNodeId = state.openTreeMenuNodeId === id ? null : id; state.isCenterMenuOpen = false; render(); });
-  app.querySelectorAll('[data-tree-action]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const action = btn.dataset.treeAction; const nodeId = btn.dataset.node; if (action.includes('Добавить')) return openAddModal(nodeId, action.includes('сотрудника') ? 'employee' : 'department'); if (action.includes('Создать чат')) return openAddModal(nodeId, 'chat'); if (action.startsWith('Открыть')) { state.node = nodeId; state.sel = { kind: 'node', id: nodeId }; } state.openTreeMenuNodeId = null; toast(`${action}: ${data.nodes[nodeId].name}`); render(); });
+  app.querySelectorAll('[data-open-tree-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.openTreeMenu; state.openTreeMenuNodeId = state.openTreeMenuNodeId === id ? null : id; state.isCenterMenuOpen = false; renderForTreeInteraction(); });
+  app.querySelectorAll('[data-tree-action]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const action = btn.dataset.treeAction; const nodeId = btn.dataset.node; if (action.includes('Добавить')) return openAddModal(nodeId, action.includes('сотрудника') ? 'employee' : 'department'); if (action.includes('Создать чат')) return openAddModal(nodeId, 'chat'); if (action.startsWith('Открыть')) { state.node = nodeId; state.sel = { kind: 'node', id: nodeId }; } state.openTreeMenuNodeId = null; toast(`${action}: ${data.nodes[nodeId].name}`); renderForTreeInteraction(); });
 
   app.querySelectorAll('[data-drag-handle]').forEach((handle) => {
     handle.ondragstart = (e) => {
@@ -519,7 +521,7 @@ function bindInteractions() {
       e.dataTransfer.setData('application/org-node', JSON.stringify({ draggedNodeId: nodeId, sourceParentId: parentId }));
       e.dataTransfer.effectAllowed = 'move';
     };
-    handle.ondragend = () => { state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null }; render(); };
+    handle.ondragend = () => { state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null }; renderForTreeInteraction(); };
   });
 
   app.querySelectorAll('[data-drop-node]').forEach((zone) => {
@@ -549,17 +551,17 @@ function bindInteractions() {
 
       if (!draggedNodeId || !sourceParentId || !targetParentId) {
         state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null };
-        return render();
+        return renderForTreeInteraction();
       }
       if (sourceParentId !== targetParentId) {
         toast('Можно менять порядок только в пределах одного уровня.');
         state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null };
-        return render();
+        return renderForTreeInteraction();
       }
       if (reorderWithinLevel(targetParentId, draggedNodeId, targetNodeId)) toast('Порядок обновлен');
       state.drag = { draggedNodeId: null, sourceParentId: null, overNodeId: null };
       state.openTreeMenuNodeId = null;
-      render();
+      renderForTreeInteraction();
     };
   });
 
