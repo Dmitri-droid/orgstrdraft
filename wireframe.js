@@ -71,6 +71,8 @@ const state = {
   isStructureSettingsOpen: false,
   isStructureSettingsClosing: false,
   isResetStructureConfirmOpen: false,
+  isHistoryDrawerOpen: false,
+  activeHistoryFilter: 'all',
   structureSettings: {
     dragAndDropEnabled: true,
     whoCanEdit: 'admins',
@@ -78,6 +80,19 @@ const state = {
     whoCanMoveNodes: 'admins',
   },
   detailsExpandedChildIds: {},
+  historyEntries: [
+    { id: 'h-1', departmentId: 'feo', eventType: 'reordered_nodes', description: 'Перемещён узел "Штаб ФЭО-Б"', actor: 'Иван Петров', timeLabel: 'сегодня, 14:32', relatedEntity: 'Штаб ФЭО-Б' },
+    { id: 'h-2', departmentId: 'feo', eventType: 'created_chat', description: 'Создан чат "Руководители ФЭО"', actor: 'Марина Соколова', timeLabel: 'сегодня, 11:10', relatedEntity: 'Руководители ФЭО' },
+    { id: 'h-3', departmentId: 'feo', eventType: 'changed_primary_chat', description: 'Назначен основной чат подразделения', actor: 'Иван Петров', timeLabel: 'вчера, 18:05' },
+    { id: 'h-4', departmentId: 'feo', eventType: 'added_employee', description: 'Добавлен сотрудник "Кузнецова Мария"', actor: 'Елена Смирнова', timeLabel: 'вчера, 09:40', relatedEntity: 'Кузнецова Мария' },
+    { id: 'h-5', departmentId: 'feo', eventType: 'changed_leader', description: 'Изменён руководитель подразделения', actor: 'Иван Петров', timeLabel: '12 апр, 16:20' },
+    { id: 'h-6', departmentId: 'feo', eventType: 'reset_order', description: 'Сброшен пользовательский порядок', actor: 'Администратор', timeLabel: '12 апр, 15:02' },
+    { id: 'h-7', departmentId: 'feo', eventType: 'settings_changed', description: 'Обновлены настройки оргструктуры', actor: 'Администратор', timeLabel: '12 апр, 14:10' },
+    { id: 'h-8', departmentId: 'feo', eventType: 'created_department', description: 'Создано подразделение "Группа планирования"', actor: 'Марина Соколова', timeLabel: '10 апр, 12:44', relatedEntity: 'Группа планирования' },
+    { id: 'h-9', departmentId: 'feo', eventType: 'archived_node', description: 'Архивирован узел "Планерки 2"', actor: 'Иван Петров', timeLabel: '08 апр, 17:28', relatedEntity: 'Планерки 2' },
+    { id: 'h-10', departmentId: 'feo', eventType: 'renamed_department', description: 'Переименовано подразделение "Штаб ФЭО-А"', actor: 'Марина Соколова', timeLabel: '07 апр, 10:11', relatedEntity: 'Штаб ФЭО-А' },
+    { id: 'h-11', departmentId: 'feo', eventType: 'added_position', description: 'Добавлена должность "Аналитик бюджета"', actor: 'Елена Смирнова', timeLabel: '06 апр, 16:54', relatedEntity: 'Аналитик бюджета' },
+  ],
 };
 let drawerCloseTimerId = null;
 const childPreviewByNodeId = {
@@ -115,9 +130,30 @@ const childPreviewByNodeId = {
 
 const app = document.getElementById('app');
 const getChildren = (parentId) => state.childOrderByParent[parentId] || [];
+const historyFilterLabels = { all: 'Все', structure: 'Структура', people: 'Люди', chats: 'Чаты', settings: 'Настройки' };
+const historyTypeByFilter = {
+  structure: ['created_department', 'renamed_department', 'reordered_nodes', 'archived_node'],
+  people: ['added_employee', 'added_position', 'changed_leader'],
+  chats: ['created_chat', 'changed_primary_chat'],
+  settings: ['settings_changed', 'reset_order'],
+};
+const historyEventIcon = {
+  created_department: '＋',
+  renamed_department: '✎',
+  reordered_nodes: '↕',
+  reset_order: '↺',
+  changed_leader: '👤',
+  created_chat: '💬',
+  changed_primary_chat: '◎',
+  added_employee: '👥',
+  added_position: '▤',
+  archived_node: '🗄',
+  settings_changed: '⚙',
+};
 
 function toast(message) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = message; document.body.append(t); setTimeout(() => t.remove(), 1500); }
 function breadcrumb(id) { const out = []; let cur = id; while (cur) { out.unshift(data.nodes[cur].name); cur = data.nodes[cur].parent; } return out.join(' / '); }
+function addHistoryEntry(entry) { state.historyEntries = [{ id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...entry }, ...state.historyEntries]; }
 
 function openPrimaryChat(nodeId) {
   const node = data.nodes[nodeId];
@@ -168,6 +204,7 @@ function reorderEmployeesInDepartment(departmentId, draggedEmployeeId, targetEmp
   const [moved] = list.splice(fromIndex, 1);
   list.splice(toIndex, 0, moved);
   state.employeeOrderByDepartment[departmentId] = list;
+  addHistoryEntry({ departmentId, eventType: 'reordered_nodes', description: 'Обновлён порядок сотрудников внутри подразделения', actor: 'Администратор', timeLabel: 'только что' });
   return true;
 }
 
@@ -179,6 +216,7 @@ function reorderWithinLevel(parentId, draggedNodeId, targetNodeId) {
   const [moved] = siblings.splice(fromIndex, 1);
   siblings.splice(toIndex, 0, moved);
   state.childOrderByParent[parentId] = siblings;
+  addHistoryEntry({ departmentId: parentId, eventType: 'reordered_nodes', description: `Перемещён узел "${data.nodes[draggedNodeId]?.name || draggedNodeId}"`, actor: 'Администратор', timeLabel: 'только что' });
   return true;
 }
 
@@ -213,6 +251,7 @@ function renderTree(nodeId, parentId = null, level = 0) {
 
 function resetStructureOrder() {
   state.childOrderByParent = Object.fromEntries(Object.entries(initialChildOrder).map(([k, v]) => [k, [...v]]));
+  addHistoryEntry({ departmentId: state.node, eventType: 'reset_order', description: 'Сброшен пользовательский порядок', actor: 'Администратор', timeLabel: 'только что' });
 }
 
 function list(items, kind, template) { if (!items.length) return `<div class='empty'>Пусто для выбранного узла.</div>`; return items.map((item) => `<div class='list-row ${state.sel.kind === kind && state.sel.id === item.id ? 'selected' : ''}' data-k='${kind}' data-id='${item.id}'>${template(item)}</div>`).join(''); }
@@ -282,8 +321,25 @@ function settingsDrawerContent() {
   return `<div class='drawer-overlay ${state.isStructureSettingsClosing ? 'closing' : 'open'}' data-close-structure-settings='1'><aside class='settings-drawer'><div class='drawer-header'><div><h3>Настройки оргструктуры</h3><div class='muted'>Параметры управления структурой компании</div></div><button data-close-structure-settings='1'>✕</button></div><div class='drawer-section'><label class='drawer-row'><span>Разрешить drag-and-drop</span><button type='button' class='toggle-switch ${state.structureSettings.dragAndDropEnabled ? 'on' : 'off'}' role='switch' aria-checked='${state.structureSettings.dragAndDropEnabled ? 'true' : 'false'}' data-toggle-tree-dnd='1'><span class='toggle-thumb'></span><span class='toggle-label'>${state.structureSettings.dragAndDropEnabled ? 'Вкл' : 'Выкл'}</span></button></label></div><div class='drawer-section'>${!state.isResetStructureConfirmOpen ? `<button class='danger-outline' data-ask-reset-structure='1'>Сбросить порядок</button>` : `<div class='confirm-box'><div>Сбросить пользовательский порядок?</div><div class='row-actions'><button data-cancel-reset-structure='1'>Отмена</button><button class='danger-outline' data-confirm-reset-structure='1'>Сбросить</button></div></div>`}</div><div class='drawer-section'><label>Кто может редактировать структуру<select data-structure-permission='whoCanEdit'><option value='admins' ${state.structureSettings.whoCanEdit === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanEdit === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanEdit === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может добавлять подразделения<select data-structure-permission='whoCanAddDepartments'><option value='admins' ${state.structureSettings.whoCanAddDepartments === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanAddDepartments === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanAddDepartments === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div><div class='drawer-section'><label>Кто может перемещать узлы<select data-structure-permission='whoCanMoveNodes'><option value='admins' ${state.structureSettings.whoCanMoveNodes === 'admins' ? 'selected' : ''}>Только администраторы</option><option value='admins_leads' ${state.structureSettings.whoCanMoveNodes === 'admins_leads' ? 'selected' : ''}>Администраторы и руководители</option><option value='all_managers' ${state.structureSettings.whoCanMoveNodes === 'all_managers' ? 'selected' : ''}>Все менеджеры структуры</option></select></label></div></aside></div>`;
 }
 
+function historyDrawerContent() {
+  if (!state.isHistoryDrawerOpen) return '';
+  const activeNode = data.nodes[state.node];
+  const scoped = state.historyEntries.filter((entry) => entry.departmentId === state.node);
+  const filtered = state.activeHistoryFilter === 'all'
+    ? scoped
+    : scoped.filter((entry) => historyTypeByFilter[state.activeHistoryFilter].includes(entry.eventType));
+  const filterButtons = Object.entries(historyFilterLabels)
+    .map(([key, label]) => `<button class='${state.activeHistoryFilter === key ? 'active' : ''}' data-history-filter='${key}'>${label}</button>`)
+    .join('');
+  const rows = filtered.length
+    ? filtered.map((entry) => `<div class='history-row'><span class='history-icon'>${historyEventIcon[entry.eventType]}</span><div class='grow'><div>${entry.description}</div>${entry.relatedEntity ? `<small class='muted'>Связано с: ${entry.relatedEntity}</small>` : ''}<small class='muted'>${entry.actor} · ${entry.timeLabel}</small></div></div>`).join('')
+    : `<div class='empty'>Для выбранного фильтра пока нет записей.</div>`;
+
+  return `<div class='drawer-overlay open' data-close-history='1'><aside class='settings-drawer history-drawer'><div class='drawer-header'><div><h3>История изменений</h3><div class='muted'>Журнал изменений по подразделению и связанным сущностям</div><div class='muted'>Подразделение: ${activeNode.name}</div></div><button data-close-history='1'>✕</button></div><div class='drawer-section'><div class='chips'>${filterButtons}</div></div><div class='drawer-section history-list'>${rows}</div></aside></div>`;
+}
+
 function render() {
-  app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${settingsDrawerContent()}${modalContent()}`;
+  app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
 }
 
@@ -418,7 +474,16 @@ function bindInteractions() {
     state.sel = { kind: 'node', id: btn.dataset.openPeople };
     render();
   });
-  app.querySelectorAll('[data-history]').forEach((btn) => btn.onclick = () => toast(`История изменений: ${btn.dataset.history}`));
+  app.querySelectorAll('[data-history]').forEach((btn) => btn.onclick = () => { state.isHistoryDrawerOpen = true; state.activeHistoryFilter = 'all'; render(); });
+  app.querySelectorAll('[data-history-filter]').forEach((btn) => btn.onclick = () => { state.activeHistoryFilter = btn.dataset.historyFilter; render(); });
+  app.querySelectorAll('[data-close-history]').forEach((btn) => btn.onclick = (e) => {
+    const target = e.target;
+    if (target.closest('.history-drawer') && btn.classList.contains('drawer-overlay')) return;
+    if (e.target === e.currentTarget || btn.dataset.closeHistory === '1') {
+      state.isHistoryDrawerOpen = false;
+      render();
+    }
+  });
   app.querySelectorAll('[data-toggle-details-child]').forEach((btn) => btn.onclick = () => {
     const childId = btn.dataset.toggleDetailsChild;
     state.detailsExpandedChildIds[childId] = !state.detailsExpandedChildIds[childId];
@@ -436,6 +501,13 @@ function bindInteractions() {
   app.querySelectorAll('[data-toggle-tree-dnd]').forEach((toggleButton) => toggleButton.onclick = () => {
     state.structureSettings.dragAndDropEnabled = !state.structureSettings.dragAndDropEnabled;
     toast(state.structureSettings.dragAndDropEnabled ? 'Drag-and-drop включен' : 'Drag-and-drop отключен');
+    addHistoryEntry({
+      departmentId: state.node,
+      eventType: 'settings_changed',
+      description: `Изменена настройка drag-and-drop: ${state.structureSettings.dragAndDropEnabled ? 'включено' : 'выключено'}`,
+      actor: 'Администратор',
+      timeLabel: 'только что',
+    });
     render();
   });
   app.querySelectorAll('[data-ask-reset-structure]').forEach((btn) => btn.onclick = () => { state.isResetStructureConfirmOpen = true; render(); });
@@ -449,13 +521,33 @@ function bindInteractions() {
   app.querySelectorAll('[data-structure-permission]').forEach((select) => select.onchange = () => {
     state.structureSettings[select.dataset.structurePermission] = select.value;
     toast('Настройка обновлена');
+    addHistoryEntry({
+      departmentId: state.node,
+      eventType: 'settings_changed',
+      description: `Обновлены права в настройке "${select.dataset.structurePermission}"`,
+      actor: 'Администратор',
+      timeLabel: 'только что',
+    });
   });
 
   app.querySelectorAll('[data-open-add]').forEach((btn) => btn.onclick = () => openAddModal(btn.dataset.openAdd, 'employee'));
   app.querySelectorAll('[data-add-type]').forEach((btn) => btn.onclick = () => { state.addType = btn.dataset.addType; render(); });
   app.querySelectorAll('[data-close-modal]').forEach((btn) => btn.onclick = (e) => { if (e.target === e.currentTarget || btn.dataset.closeModal === '1') { state.isAddModalOpen = false; render(); } });
   const modal = app.querySelector('.modal'); if (modal) modal.onclick = (event) => event.stopPropagation();
-  app.querySelectorAll('[data-submit-add]').forEach((btn) => btn.onclick = () => { state.isAddModalOpen = false; toast(`${submitLabels[btn.dataset.submitAdd]}: mock flow`); render(); });
+  app.querySelectorAll('[data-submit-add]').forEach((btn) => btn.onclick = () => {
+    state.isAddModalOpen = false;
+    toast(`${submitLabels[btn.dataset.submitAdd]}: mock flow`);
+    const type = btn.dataset.submitAdd;
+    const eventTypeByEntity = { employee: 'added_employee', position: 'added_position', department: 'created_department', chat: 'created_chat', file: 'settings_changed' };
+    addHistoryEntry({
+      departmentId: state.addContextNodeId,
+      eventType: eventTypeByEntity[type],
+      description: `${submitLabels[type]}: mock flow`,
+      actor: 'Пользователь',
+      timeLabel: 'только что',
+    });
+    render();
+  });
 }
 
 window.addEventListener('mousedown', (event) => {
@@ -472,6 +564,7 @@ window.addEventListener('mousedown', (event) => {
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (state.isAddModalOpen) { state.isAddModalOpen = false; render(); return; }
+    if (state.isHistoryDrawerOpen) { state.isHistoryDrawerOpen = false; render(); return; }
     if (state.isStructureSettingsOpen) { closeStructureSettings(); return; }
     if (state.openTreeMenuNodeId || state.isCenterMenuOpen) { state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); }
   }

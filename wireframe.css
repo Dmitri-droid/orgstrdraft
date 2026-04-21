@@ -96,3 +96,9 @@ button:hover { background: #f2f2f2; cursor: pointer; }
 .toggle-switch .toggle-label { font-size: 11px; color: #444; min-width: 26px; text-align: right; }
 .toggle-switch.on { background: #e5e5e5; }
 .toggle-switch.on .toggle-thumb { transform: translateX(22px); }
+
+.history-drawer { width: 440px; }
+.history-list { max-height: calc(100vh - 220px); overflow: auto; }
+.history-row { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid #ececec; }
+.history-row:last-child { border-bottom: none; }
+.history-icon { width: 24px; height: 24px; border: 1px solid #b4b4b4; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #555; font-size: 12px; background: #fafafa; }

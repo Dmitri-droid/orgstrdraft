@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { chats, employees, files, nodeTypeLabel, orgNodes, positions } from './data/mockData';
 import { AddEntityModal } from './components/AddEntityModal';
+import { ChangeHistoryDrawer, HistoryEntry } from './components/ChangeHistoryDrawer';
 import { ContentPanel } from './components/ContentPanel';
 import { DetailsPanel } from './components/DetailsPanel';
 import { OrgTreeSidebar } from './components/OrgTreeSidebar';
@@ -46,7 +47,21 @@ export function App() {
 
   const [isStructureSettingsOpen, setIsStructureSettingsOpen] = useState(false);
   const [isResetStructureConfirmOpen, setIsResetStructureConfirmOpen] = useState(false);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [resetStructureOrderSignal, setResetStructureOrderSignal] = useState(0);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([
+    { id: 'h-1', departmentId: 'feo', eventType: 'reordered_nodes', description: 'Перемещён узел "Штаб ФЭО-Б"', actor: 'Иван Петров', timeLabel: 'сегодня, 14:32', relatedEntity: 'Штаб ФЭО-Б' },
+    { id: 'h-2', departmentId: 'feo', eventType: 'created_chat', description: 'Создан чат "Руководители ФЭО"', actor: 'Марина Соколова', timeLabel: 'сегодня, 11:10', relatedEntity: 'Руководители ФЭО' },
+    { id: 'h-3', departmentId: 'feo', eventType: 'changed_primary_chat', description: 'Назначен основной чат подразделения', actor: 'Иван Петров', timeLabel: 'вчера, 18:05' },
+    { id: 'h-4', departmentId: 'feo', eventType: 'added_employee', description: 'Добавлен сотрудник "Кузнецова Мария"', actor: 'Елена Смирнова', timeLabel: 'вчера, 09:40', relatedEntity: 'Кузнецова Мария' },
+    { id: 'h-5', departmentId: 'feo', eventType: 'changed_leader', description: 'Изменён руководитель подразделения', actor: 'Иван Петров', timeLabel: '12 апр, 16:20' },
+    { id: 'h-6', departmentId: 'feo', eventType: 'reset_order', description: 'Сброшен пользовательский порядок', actor: 'Администратор', timeLabel: '12 апр, 15:02' },
+    { id: 'h-7', departmentId: 'feo', eventType: 'settings_changed', description: 'Обновлены настройки оргструктуры', actor: 'Администратор', timeLabel: '12 апр, 14:10' },
+    { id: 'h-8', departmentId: 'feo', eventType: 'created_department', description: 'Создано подразделение "Группа планирования"', actor: 'Марина Соколова', timeLabel: '10 апр, 12:44', relatedEntity: 'Группа планирования' },
+    { id: 'h-9', departmentId: 'feo', eventType: 'archived_node', description: 'Архивирован узел "Планерки 2"', actor: 'Иван Петров', timeLabel: '08 апр, 17:28', relatedEntity: 'Планерки 2' },
+    { id: 'h-10', departmentId: 'feo', eventType: 'renamed_department', description: 'Переименовано подразделение "Штаб ФЭО-А"', actor: 'Марина Соколова', timeLabel: '07 апр, 10:11', relatedEntity: 'Штаб ФЭО-А' },
+    { id: 'h-11', departmentId: 'feo', eventType: 'added_position', description: 'Добавлена должность "Аналитик бюджета"', actor: 'Елена Смирнова', timeLabel: '06 апр, 16:54', relatedEntity: 'Аналитик бюджета' },
+  ]);
   const [structureSettings, setStructureSettings] = useState<StructureSettings>({
     dragAndDropEnabled: true,
     whoCanEdit: 'admins',
@@ -60,6 +75,10 @@ export function App() {
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 1800);
+  };
+
+  const addHistoryEntry = (entry: Omit<HistoryEntry, 'id'>) => {
+    setHistoryEntries((prev) => [{ ...entry, id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }, ...prev]);
   };
 
   const openAddModal = (nodeId: string, entityType: AddEntityType = 'employee') => {
@@ -116,6 +135,13 @@ export function App() {
       return { ...prev, [departmentId]: list };
     });
     showToast('Порядок сотрудников обновлен');
+    addHistoryEntry({
+      departmentId,
+      eventType: 'reordered_nodes',
+      description: 'Обновлён порядок сотрудников внутри подразделения',
+      actor: 'Администратор',
+      timeLabel: 'только что',
+    });
   };
 
   return (
@@ -164,6 +190,7 @@ export function App() {
           nodeTypeLabel={nodeTypeLabel[activeNode.type]}
           onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
           onOpenAddModal={() => openAddModal(activeNodeId)}
+          onOpenHistory={() => setIsHistoryDrawerOpen(true)}
           onAction={showToast}
         />
       </div>
@@ -179,10 +206,24 @@ export function App() {
         onToggleDrag={(value) => {
           setStructureSettings((prev) => ({ ...prev, dragAndDropEnabled: value }));
           showToast(value ? 'Drag-and-drop включен' : 'Drag-and-drop отключен');
+          addHistoryEntry({
+            departmentId: activeNodeId,
+            eventType: 'settings_changed',
+            description: `Изменена настройка drag-and-drop: ${value ? 'включено' : 'выключено'}`,
+            actor: 'Администратор',
+            timeLabel: 'только что',
+          });
         }}
         onChangePermission={(field, value) => {
           setStructureSettings((prev) => ({ ...prev, [field]: value }));
           showToast('Настройка обновлена');
+          addHistoryEntry({
+            departmentId: activeNodeId,
+            eventType: 'settings_changed',
+            description: `Обновлены права в настройке "${field}"`,
+            actor: 'Администратор',
+            timeLabel: 'только что',
+          });
         }}
         onAskResetOrder={() => setIsResetStructureConfirmOpen(true)}
         onCancelResetOrder={() => setIsResetStructureConfirmOpen(false)}
@@ -190,7 +231,22 @@ export function App() {
           setResetStructureOrderSignal((prev) => prev + 1);
           setIsResetStructureConfirmOpen(false);
           showToast('Пользовательский порядок сброшен');
+          addHistoryEntry({
+            departmentId: activeNodeId,
+            eventType: 'reset_order',
+            description: 'Сброшен пользовательский порядок',
+            actor: 'Администратор',
+            timeLabel: 'только что',
+          });
         }}
+      />
+
+      <ChangeHistoryDrawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={() => setIsHistoryDrawerOpen(false)}
+        departmentId={activeNodeId}
+        departmentName={activeNode.name}
+        entries={historyEntries}
       />
 
       <AddEntityModal
@@ -202,6 +258,20 @@ export function App() {
         onSubmit={(type) => {
           setIsAddModalOpen(false);
           showToast(`${submitLabelByEntityType[type]} добавлен(а): mock flow`);
+          const eventTypeByEntity: Record<AddEntityType, HistoryEntry['eventType']> = {
+            employee: 'added_employee',
+            position: 'added_position',
+            department: 'created_department',
+            chat: 'created_chat',
+            file: 'settings_changed',
+          };
+          addHistoryEntry({
+            departmentId: addModalContextNodeId,
+            eventType: eventTypeByEntity[type],
+            description: `${submitLabelByEntityType[type]} добавлен(а): mock flow`,
+            actor: 'Пользователь',
+            timeLabel: 'только что',
+          });
         }}
       />
 

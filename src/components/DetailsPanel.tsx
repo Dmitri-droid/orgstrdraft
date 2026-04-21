@@ -12,10 +12,11 @@ interface Props {
   files: DepartmentFile[];
   onPrimaryChatOpen: () => void;
   onOpenAddModal: () => void;
+  onOpenHistory: () => void;
   onAction: (message: string) => void;
 }
 
-export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onOpenAddModal, onAction }: Props) {
+export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onOpenAddModal, onOpenHistory, onAction }: Props) {
   const panel = (() => {
     if (selection.kind === 'employee') {
       const employee = employees.find((item) => item.id === selection.id);
@@ -53,6 +54,7 @@ export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positi
         files={files}
         onPrimaryChatOpen={onPrimaryChatOpen}
         onOpenAddModal={onOpenAddModal}
+        onOpenHistory={onOpenHistory}
         onAction={onAction}
       />
     );
@@ -97,6 +99,7 @@ function DepartmentCard({
   files,
   onPrimaryChatOpen,
   onOpenAddModal,
+  onOpenHistory,
   onAction,
 }: {
   node: OrgNode;
@@ -106,6 +109,7 @@ function DepartmentCard({
   files: DepartmentFile[];
   onPrimaryChatOpen: () => void;
   onOpenAddModal: () => void;
+  onOpenHistory: () => void;
   onAction: (message: string) => void;
 }) {
   const [expandedChildIds, setExpandedChildIds] = useState<Record<string, boolean>>({});
@@ -272,7 +276,7 @@ function DepartmentCard({
         <div className="details-list-stack">
           <button onClick={onPrimaryChatOpen}>Открыть основной чат</button>
           <button onClick={() => onAction('Перейти к сотрудникам')}>Перейти к сотрудникам</button>
-          <button onClick={() => onAction('Показать историю изменений')}>Показать историю изменений</button>
+          <button onClick={onOpenHistory}>Показать историю изменений</button>
           <button onClick={onOpenAddModal}>Добавить сотрудника</button>
         </div>
       </div>
