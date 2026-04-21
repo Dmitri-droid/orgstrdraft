@@ -485,7 +485,23 @@ function render() {
 
 function bindInteractions() {
   app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; render(); });
-  app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => { const id = btn.dataset.selectNode; state.node = id; state.sel = { kind: 'node', id }; state.tab = data.nodes[id].type === 'chat' ? 'chats' : 'people'; state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; state.pendingRevealNodeId = null; render(); });
+  app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => {
+    const id = btn.dataset.selectNode;
+    const leftPanel = app.querySelector('.panel.left');
+    const prevScrollTop = leftPanel ? leftPanel.scrollTop : null;
+    state.node = id;
+    state.sel = { kind: 'node', id };
+    state.tab = data.nodes[id].type === 'chat' ? 'chats' : 'people';
+    state.openTreeMenuNodeId = null;
+    state.isCenterMenuOpen = false;
+    state.pendingRevealNodeId = null;
+    render();
+    window.requestAnimationFrame(() => {
+      if (prevScrollTop === null) return;
+      const currentLeftPanel = app.querySelector('.panel.left');
+      if (currentLeftPanel) currentLeftPanel.scrollTop = prevScrollTop;
+    });
+  });
   app.querySelectorAll('[data-open-tree-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.openTreeMenu; state.openTreeMenuNodeId = state.openTreeMenuNodeId === id ? null : id; state.isCenterMenuOpen = false; render(); });
   app.querySelectorAll('[data-tree-action]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const action = btn.dataset.treeAction; const nodeId = btn.dataset.node; if (action.includes('Добавить')) return openAddModal(nodeId, action.includes('сотрудника') ? 'employee' : 'department'); if (action.includes('Создать чат')) return openAddModal(nodeId, 'chat'); if (action.startsWith('Открыть')) { state.node = nodeId; state.sel = { kind: 'node', id: nodeId }; } state.openTreeMenuNodeId = null; toast(`${action}: ${data.nodes[nodeId].name}`); render(); });
 

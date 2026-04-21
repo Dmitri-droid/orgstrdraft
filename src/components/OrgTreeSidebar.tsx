@@ -186,8 +186,14 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
           }}
           onDragEnd={() => setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null })}
           onSelect={(id) => {
+            const prevScrollTop = sidebarRef.current?.scrollTop ?? null;
             setOpenMenuNodeId(null);
             onSelectNode(id);
+            window.requestAnimationFrame(() => {
+              if (prevScrollTop === null) return;
+              if (pendingRevealNodeId) return;
+              if (sidebarRef.current) sidebarRef.current.scrollTop = prevScrollTop;
+            });
           }}
           onMenuAction={(nodeId, actionLabel) => {
             const node = orderedNodes[nodeId];
