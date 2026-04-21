@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { chats, employees, files, nodeTypeLabel, orgNodes, positions } from './data/mockData';
 import { AddEntityModal } from './components/AddEntityModal';
 import { ChangeHistoryDrawer, HistoryEntry } from './components/ChangeHistoryDrawer';
@@ -48,7 +48,7 @@ export function App() {
   const [isStructureSettingsOpen, setIsStructureSettingsOpen] = useState(false);
   const [isResetStructureConfirmOpen, setIsResetStructureConfirmOpen] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [pendingRevealNodeId, setPendingRevealNodeId] = useState<string | null>(null);
   const [resetStructureOrderSignal, setResetStructureOrderSignal] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([
     { id: 'h-1', departmentId: 'feo', eventType: 'reordered_nodes', description: 'Перемещён узел "Штаб ФЭО-Б"', actor: 'Иван Петров', timeLabel: 'сегодня, 14:32', relatedEntity: 'Штаб ФЭО-Б' },
@@ -81,6 +81,8 @@ export function App() {
   const addHistoryEntry = (entry: Omit<HistoryEntry, 'id'>) => {
     setHistoryEntries((prev) => [{ ...entry, id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }, ...prev]);
   };
+
+  const handleRevealHandled = useCallback(() => setPendingRevealNodeId(null), []);
 
   const openAddModal = (nodeId: string, entityType: AddEntityType = 'employee') => {
     setAddModalContextNodeId(nodeId);
@@ -165,7 +167,7 @@ export function App() {
     setActiveNodeId(targetNodeId);
     setSelection(nextSelection ?? { kind: 'node', id: targetNodeId });
     if (nextTab) setActiveTab(nextTab);
-    setFocusNodeId(targetNodeId);
+    setPendingRevealNodeId(targetNodeId);
     showToast(`Показано в структуре: ${orgNodes[targetNodeId].name}`);
   };
 
@@ -203,14 +205,15 @@ export function App() {
           activeNodeId={activeNodeId}
           dragEnabled={structureSettings.dragAndDropEnabled}
           resetOrderSignal={resetStructureOrderSignal}
-          focusNodeId={focusNodeId}
-          onFocusHandled={() => setFocusNodeId(null)}
+          pendingRevealNodeId={pendingRevealNodeId}
+          onRevealHandled={handleRevealHandled}
           onAction={showToast}
           onOpenAddModal={openAddModal}
           onSelectNode={(id) => {
             setActiveNodeId(id);
             setSelection({ kind: 'node', id });
             setActiveTab(orgNodes[id].type === 'chat' ? 'chats' : 'people');
+            setPendingRevealNodeId(null);
           }}
         />
         <ContentPanel

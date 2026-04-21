@@ -150,6 +150,7 @@ const state = {
   },
   detailsExpandedChildIds: {},
   flashNodeId: null,
+  pendingRevealNodeId: null,
   historyEntries: [
     { id: 'h-1', departmentId: 'feo', eventType: 'reordered_nodes', description: 'Перемещён узел "Штаб ФЭО-Б"', actor: 'Иван Петров', timeLabel: 'сегодня, 14:32', relatedEntity: 'Штаб ФЭО-Б' },
     { id: 'h-2', departmentId: 'feo', eventType: 'created_chat', description: 'Создан чат "Руководители ФЭО"', actor: 'Марина Соколова', timeLabel: 'сегодня, 11:10', relatedEntity: 'Руководители ФЭО' },
@@ -234,18 +235,7 @@ function focusNodeInTree(targetNodeId) {
   }
   state.node = targetNodeId;
   state.sel = { kind: 'node', id: targetNodeId };
-  state.flashNodeId = targetNodeId;
-  render();
-  window.requestAnimationFrame(() => {
-    const nodeEl = app.querySelector(`.tree-node[data-drop-node="${targetNodeId}"]`);
-    if (nodeEl) nodeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    window.setTimeout(() => {
-      if (state.flashNodeId === targetNodeId) {
-        state.flashNodeId = null;
-        render();
-      }
-    }, 1000);
-  });
+  state.pendingRevealNodeId = targetNodeId;
 }
 
 function showInStructure(target) {
@@ -285,6 +275,22 @@ function showInStructure(target) {
   if (!data.nodes[targetNodeId]) return;
   toast(`Показано в структуре: ${data.nodes[targetNodeId].name}`);
   focusNodeInTree(targetNodeId);
+  render();
+}
+
+function processPendingReveal() {
+  const targetNodeId = state.pendingRevealNodeId;
+  if (!targetNodeId || !data.nodes[targetNodeId]) return;
+  state.pendingRevealNodeId = null;
+  state.flashNodeId = targetNodeId;
+  const nodeEl = app.querySelector(`.tree-node[data-drop-node="${targetNodeId}"]`);
+  if (nodeEl) nodeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  window.setTimeout(() => {
+    if (state.flashNodeId === targetNodeId) {
+      state.flashNodeId = null;
+      render();
+    }
+  }, 1000);
 }
 
 function openPrimaryChat(nodeId) {
@@ -474,11 +480,12 @@ function historyDrawerContent() {
 function render() {
   app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
+  processPendingReveal();
 }
 
 function bindInteractions() {
   app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; render(); });
-  app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => { const id = btn.dataset.selectNode; state.node = id; state.sel = { kind: 'node', id }; state.tab = data.nodes[id].type === 'chat' ? 'chats' : 'people'; state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); });
+  app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => { const id = btn.dataset.selectNode; state.node = id; state.sel = { kind: 'node', id }; state.tab = data.nodes[id].type === 'chat' ? 'chats' : 'people'; state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; state.pendingRevealNodeId = null; render(); });
   app.querySelectorAll('[data-open-tree-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.openTreeMenu; state.openTreeMenuNodeId = state.openTreeMenuNodeId === id ? null : id; state.isCenterMenuOpen = false; render(); });
   app.querySelectorAll('[data-tree-action]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const action = btn.dataset.treeAction; const nodeId = btn.dataset.node; if (action.includes('Добавить')) return openAddModal(nodeId, action.includes('сотрудника') ? 'employee' : 'department'); if (action.includes('Создать чат')) return openAddModal(nodeId, 'chat'); if (action.startsWith('Открыть')) { state.node = nodeId; state.sel = { kind: 'node', id: nodeId }; } state.openTreeMenuNodeId = null; toast(`${action}: ${data.nodes[nodeId].name}`); render(); });
 

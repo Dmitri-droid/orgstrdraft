@@ -10,8 +10,8 @@ interface Props {
   resetOrderSignal: number;
   onAction: (message: string) => void;
   onOpenAddModal: (nodeId: string, entityType?: AddEntityType) => void;
-  focusNodeId?: string | null;
-  onFocusHandled?: () => void;
+  pendingRevealNodeId?: string | null;
+  onRevealHandled?: () => void;
 }
 
 const filters = ['Все', 'Подразделения', 'Люди', 'Должности', 'Чаты', 'Вакансии'];
@@ -31,7 +31,7 @@ const buildInitialOrder = (): Record<string, string[]> =>
     return acc;
   }, {});
 
-export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, onSelectNode, onAction, onOpenAddModal, focusNodeId, onFocusHandled }: Props) {
+export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, onSelectNode, onAction, onOpenAddModal, pendingRevealNodeId, onRevealHandled }: Props) {
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [openMenuNodeId, setOpenMenuNodeId] = useState<string | null>(null);
@@ -44,6 +44,7 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
   });
   const sidebarRef = useRef<HTMLElement | null>(null);
   const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
+  const handledRevealRef = useRef<string | null>(null);
 
   const orderedNodes = useMemo<Record<string, OrgNode>>(
     () =>
@@ -88,10 +89,12 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
   }, [resetOrderSignal]);
 
   useEffect(() => {
-    if (!focusNodeId || !orderedNodes[focusNodeId]) return;
+    if (!pendingRevealNodeId || !orderedNodes[pendingRevealNodeId]) return;
+    if (handledRevealRef.current === pendingRevealNodeId) return;
+    handledRevealRef.current = pendingRevealNodeId;
 
     const path: string[] = [];
-    let current: string | null = focusNodeId;
+    let current: string | null = pendingRevealNodeId;
     while (current) {
       path.push(current);
       current = orderedNodes[current]?.parentId ?? null;
@@ -105,14 +108,18 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
     });
 
     window.requestAnimationFrame(() => {
-      const nodeElement = sidebarRef.current?.querySelector<HTMLElement>(`[data-node-id="${focusNodeId}"]`);
+      const nodeElement = sidebarRef.current?.querySelector<HTMLElement>(`[data-node-id="${pendingRevealNodeId}"]`);
       if (!nodeElement) return;
       nodeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setFlashNodeId(focusNodeId);
-      window.setTimeout(() => setFlashNodeId((prev) => (prev === focusNodeId ? null : prev)), 1100);
-      onFocusHandled?.();
+      setFlashNodeId(pendingRevealNodeId);
+      window.setTimeout(() => setFlashNodeId((prev) => (prev === pendingRevealNodeId ? null : prev)), 1100);
+      onRevealHandled?.();
     });
-  }, [focusNodeId, orderedNodes, onFocusHandled]);
+  }, [pendingRevealNodeId, orderedNodes, onRevealHandled]);
+
+  useEffect(() => {
+    if (!pendingRevealNodeId) handledRevealRef.current = null;
+  }, [pendingRevealNodeId]);
 
   const reorderWithinLevel = (parentId: string, draggedNodeId: string, overNodeId: string) => {
     setChildOrderByParent((prev) => {
