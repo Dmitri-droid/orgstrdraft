@@ -35,6 +35,75 @@ const data = {
   ],
 };
 
+function extendMockTreeData() {
+  const nodeDefs = [
+    { id: 'fin-control', name: 'Центр финконтроля', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'hq', children: ['fin-control-chat', 'fin-control-a'], summary: '5 участников · 2 чата', leader: 'Елена Смирнова', desc: 'Контроль бюджетных лимитов.', primaryChatId: 'c5' },
+    { id: 'fin-control-a', name: 'Группа комплаенс', type: 'group', typeLabel: 'Группа', icon: '◫', parent: 'fin-control', children: [], summary: '3 участника · 1 чат', leader: 'Анна Громова', desc: 'Контроль операций', primaryChatId: null },
+    { id: 'fin-control-chat', name: 'Финконтроль · оперативка', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'fin-control', children: [], summary: '12 участников', leader: 'Елена Смирнова', desc: 'Оперативный чат', primaryChatId: 'c5' },
+    { id: 'legal', name: 'Юридический блок', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'hq', children: ['legal-docs', 'legal-chat'], summary: '4 участника · 2 чата', leader: 'Роман Кузнецов', desc: 'Договорная работа', primaryChatId: 'c6' },
+    { id: 'legal-docs', name: 'Группа договоров', type: 'team', typeLabel: 'Отдел', icon: '▤', parent: 'legal', children: [], summary: '2 участника', leader: 'Ольга Миронова', desc: 'Договоры и NDA', primaryChatId: null },
+    { id: 'legal-chat', name: 'Юридический чат', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'legal', children: [], summary: '9 участников', leader: 'Роман Кузнецов', desc: 'Юридические вопросы', primaryChatId: 'c6' },
+    { id: 'corp-it', name: 'Корпоративные системы', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'root', children: ['corp-it-infra', 'corp-it-helpdesk', 'corp-it-chat', 'corp-it-system'], summary: '8 участников · 3 чата', leader: 'Артем Волков', desc: 'ИТ-платформы компании', primaryChatId: 'c14' },
+    { id: 'corp-it-infra', name: 'Инфраструктурная группа', type: 'group', typeLabel: 'Группа', icon: '◫', parent: 'corp-it', children: [], summary: '3 участника', leader: 'Артем Волков', desc: 'Сети и серверы', primaryChatId: null },
+    { id: 'corp-it-helpdesk', name: 'Helpdesk', type: 'team', typeLabel: 'Отдел', icon: '▤', parent: 'corp-it', children: [], summary: '3 участника', leader: 'Полина Ершова', desc: 'Поддержка сотрудников', primaryChatId: null },
+    { id: 'corp-it-chat', name: 'IT Ops чат', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'corp-it', children: [], summary: '13 участников', leader: 'Артем Волков', desc: 'Оперативный чат IT', primaryChatId: 'c14' },
+    { id: 'corp-it-system', name: 'Системная выборка IT', type: 'system', typeLabel: 'Системная выборка', icon: '☰', parent: 'corp-it', children: [], summary: '8 участников · 4 файла', leader: 'Система', desc: 'ИТ-инциденты и метрики', primaryChatId: null },
+    { id: 'rnd-core', name: 'Центр НИОКР', type: 'team', typeLabel: 'Отдел', icon: '▤', parent: 'rnd', children: ['rnd-core-a', 'rnd-core-chat'], summary: '4 участника · 2 чата', leader: 'Павел Белов', desc: 'Координация R&D', primaryChatId: 'c10' },
+    { id: 'rnd-core-a', name: 'Группа прототипов', type: 'group', typeLabel: 'Группа', icon: '◫', parent: 'rnd-core', children: ['rnd-core-a-chat'], summary: '3 участника · 1 чат', leader: 'Дмитрий Беляев', desc: 'Прототипирование', primaryChatId: 'c11' },
+    { id: 'rnd-core-a-chat', name: 'Прототипы · стендап', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'rnd-core-a', children: [], summary: '6 участников', leader: 'Дмитрий Беляев', desc: 'Стендап группы', primaryChatId: 'c11' },
+    { id: 'rnd-core-chat', name: 'НИОКР · общий чат', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'rnd-core', children: [], summary: '16 участников', leader: 'Павел Белов', desc: 'Основной чат НИОКР', primaryChatId: 'c10' },
+    { id: 'rnd-lab', name: 'Лаборатория ИИ', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'rnd', children: ['rnd-lab-ml', 'rnd-lab-nlp', 'rnd-lab-chat'], summary: '5 участников · 2 чата', leader: 'Тимур Азаров', desc: 'ML/NLP направления', primaryChatId: 'c12' },
+    { id: 'rnd-lab-ml', name: 'ML группа', type: 'group', typeLabel: 'Группа', icon: '◫', parent: 'rnd-lab', children: [], summary: '2 участника', leader: 'Алина Сергеева', desc: 'ML-модели', primaryChatId: null },
+    { id: 'rnd-lab-nlp', name: 'NLP группа', type: 'group', typeLabel: 'Группа', icon: '◫', parent: 'rnd-lab', children: [], summary: '2 участника', leader: 'Илья Медведев', desc: 'NLP-пайплайны', primaryChatId: null },
+    { id: 'rnd-lab-chat', name: 'Лаборатория ИИ · чат', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'rnd-lab', children: [], summary: '11 участников', leader: 'Тимур Азаров', desc: 'Чат лаборатории', primaryChatId: 'c12' },
+    { id: 'rnd-system', name: 'Системная выборка НИОКР', type: 'system', typeLabel: 'Системная выборка', icon: '☰', parent: 'rnd', children: [], summary: '10 участников · 7 файлов', leader: 'Система', desc: 'R&D активность', primaryChatId: null },
+    { id: 'rnd-chat', name: 'НИОКР · руководители', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'rnd', children: [], summary: '5 участников', leader: 'Павел Белов', desc: 'Управленческий чат', primaryChatId: 'c13' },
+    { id: 'reporting-chat', name: 'Отчетность ФЭО', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'feo', children: [], summary: '14 участников', leader: 'Иван Демьянов', desc: 'Кросс-командный чат отчетности', primaryChatId: 'c9' },
+  ];
+  nodeDefs.forEach((node) => { data.nodes[node.id] = node; });
+  data.nodes.root.children = ['hq', 'rnd', 'corp-it'];
+  data.nodes.hq.children = ['feo', 'fin-control', 'legal', 'hr-chat'];
+  data.nodes.feo.children = ['plan3', 'feo-b', 'all-system', 'reporting-chat'];
+  data.nodes.rnd.children = ['rnd-core', 'rnd-lab', 'rnd-system', 'rnd-chat'];
+
+  data.people.push(
+    { id: 'e6', name: 'Елена Смирнова', pos: 'Руководитель финконтроля', sub: 'Контроль бюджета', status: 'online', dep: 'fin-control' },
+    { id: 'e7', name: 'Анна Громова', pos: 'Комплаенс-аналитик', sub: 'Операционный контроль', status: 'away', dep: 'fin-control-a' },
+    { id: 'e8', name: 'Роман Кузнецов', pos: 'Юрист', sub: 'Юридический блок', status: 'online', dep: 'legal' },
+    { id: 'e9', name: 'Ольга Миронова', pos: 'Юрист по договорам', sub: 'Договоры', status: 'offline', dep: 'legal-docs' },
+    { id: 'e10', name: 'Артем Волков', pos: 'IT Ops Lead', sub: 'Корпоративные системы', status: 'online', dep: 'corp-it' },
+    { id: 'e11', name: 'Полина Ершова', pos: 'Helpdesk Lead', sub: 'Сервис-деск', status: 'away', dep: 'corp-it-helpdesk' },
+    { id: 'e12', name: 'Тимур Азаров', pos: 'Руководитель лаборатории ИИ', sub: 'ML/NLP', status: 'online', dep: 'rnd-lab' },
+    { id: 'e13', name: 'Алина Сергеева', pos: 'ML инженер', sub: 'ML группа', status: 'online', dep: 'rnd-lab-ml' },
+    { id: 'e14', name: 'Илья Медведев', pos: 'NLP инженер', sub: 'NLP группа', status: 'away', dep: 'rnd-lab-nlp' },
+  );
+  data.positions.push(
+    { id: 'p5', title: 'Руководитель финконтроля', status: 'Занята', assignee: 'Елена Смирнова', dep: 'fin-control' },
+    { id: 'p6', title: 'Юрист', status: 'Занята', assignee: 'Роман Кузнецов', dep: 'legal' },
+    { id: 'p7', title: 'IT Ops Lead', status: 'Занята', assignee: 'Артем Волков', dep: 'corp-it' },
+    { id: 'p8', title: 'ML инженер', status: 'Занята', assignee: 'Алина Сергеева', dep: 'rnd-lab-ml' },
+  );
+  data.chats.push(
+    { id: 'c5', name: 'Финконтроль · оперативка', type: 'Операционный', participants: 12, last: 'Лимиты обновлены', dep: 'fin-control', nodeId: 'fin-control-chat' },
+    { id: 'c6', name: 'Юридический чат', type: 'Рабочий', participants: 9, last: 'Новый шаблон NDA', dep: 'legal', nodeId: 'legal-chat' },
+    { id: 'c9', name: 'Отчетность ФЭО', type: 'Рабочий', participants: 14, last: 'Готова сводка', dep: 'feo', nodeId: 'reporting-chat' },
+    { id: 'c10', name: 'НИОКР · общий чат', type: 'Командный', participants: 16, last: 'Статус экспериментов', dep: 'rnd-core', nodeId: 'rnd-core-chat' },
+    { id: 'c11', name: 'Прототипы · стендап', type: 'Стендап', participants: 6, last: 'Демо в пятницу', dep: 'rnd-core-a', nodeId: 'rnd-core-a-chat' },
+    { id: 'c12', name: 'Лаборатория ИИ · чат', type: 'Командный', participants: 11, last: 'Датасет загружен', dep: 'rnd-lab', nodeId: 'rnd-lab-chat' },
+    { id: 'c13', name: 'НИОКР · руководители', type: 'Управленческий', participants: 5, last: 'KPI квартала', dep: 'rnd', nodeId: 'rnd-chat' },
+    { id: 'c14', name: 'IT Ops чат', type: 'Операционный', participants: 13, last: 'Инцидент закрыт', dep: 'corp-it', nodeId: 'corp-it-chat' },
+  );
+  data.files.push(
+    { id: 'f4', name: 'Регламент финконтроля.pdf', type: 'PDF', owner: 'Елена Смирнова', dep: 'fin-control' },
+    { id: 'f5', name: 'Шаблон NDA.docx', type: 'DOCX', owner: 'Роман Кузнецов', dep: 'legal' },
+    { id: 'f6', name: 'IT incident runbook.pdf', type: 'PDF', owner: 'Артем Волков', dep: 'corp-it' },
+    { id: 'f7', name: 'ML metrics.csv', type: 'CSV', owner: 'Алина Сергеева', dep: 'rnd-lab-ml' },
+    { id: 'f8', name: 'NLP glossary.docx', type: 'DOCX', owner: 'Илья Медведев', dep: 'rnd-lab-nlp' },
+  );
+}
+
+extendMockTreeData();
+
 const treeMenuByType = {
   company: ['Открыть', 'Добавить подразделение', 'Импорт структуры', 'Настроить структуру'],
   department: ['Открыть', 'Переименовать', 'Добавить дочернее подразделение', 'Добавить сотрудника', 'Создать чат подразделения', 'Архивировать'],
@@ -80,6 +149,7 @@ const state = {
     whoCanMoveNodes: 'admins',
   },
   detailsExpandedChildIds: {},
+  flashNodeId: null,
   historyEntries: [
     { id: 'h-1', departmentId: 'feo', eventType: 'reordered_nodes', description: 'Перемещён узел "Штаб ФЭО-Б"', actor: 'Иван Петров', timeLabel: 'сегодня, 14:32', relatedEntity: 'Штаб ФЭО-Б' },
     { id: 'h-2', departmentId: 'feo', eventType: 'created_chat', description: 'Создан чат "Руководители ФЭО"', actor: 'Марина Соколова', timeLabel: 'сегодня, 11:10', relatedEntity: 'Руководители ФЭО' },
@@ -155,6 +225,68 @@ function toast(message) { const t = document.createElement('div'); t.className =
 function breadcrumb(id) { const out = []; let cur = id; while (cur) { out.unshift(data.nodes[cur].name); cur = data.nodes[cur].parent; } return out.join(' / '); }
 function addHistoryEntry(entry) { state.historyEntries = [{ id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...entry }, ...state.historyEntries]; }
 
+function focusNodeInTree(targetNodeId) {
+  if (!data.nodes[targetNodeId]) return;
+  let current = targetNodeId;
+  while (current) {
+    state.exp[current] = true;
+    current = data.nodes[current].parent;
+  }
+  state.node = targetNodeId;
+  state.sel = { kind: 'node', id: targetNodeId };
+  state.flashNodeId = targetNodeId;
+  render();
+  window.requestAnimationFrame(() => {
+    const nodeEl = app.querySelector(`.tree-node[data-drop-node="${targetNodeId}"]`);
+    if (nodeEl) nodeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    window.setTimeout(() => {
+      if (state.flashNodeId === targetNodeId) {
+        state.flashNodeId = null;
+        render();
+      }
+    }, 1000);
+  });
+}
+
+function showInStructure(target) {
+  let targetNodeId = state.node;
+  if (target.kind === 'node') {
+    targetNodeId = target.nodeId;
+    state.sel = { kind: 'node', id: target.nodeId };
+  }
+  if (target.kind === 'employee') {
+    const employee = data.people.find((item) => item.id === target.employeeId);
+    if (!employee) return;
+    targetNodeId = employee.dep;
+    state.tab = 'people';
+    state.sel = { kind: 'employee', id: employee.id };
+  }
+  if (target.kind === 'position') {
+    const position = data.positions.find((item) => item.id === target.positionId);
+    if (!position) return;
+    targetNodeId = position.dep;
+    state.tab = 'positions';
+    state.sel = { kind: 'position', id: position.id };
+  }
+  if (target.kind === 'chat') {
+    const chat = data.chats.find((item) => item.id === target.chatId);
+    if (!chat) return;
+    targetNodeId = chat.nodeId && data.nodes[chat.nodeId] ? chat.nodeId : chat.dep;
+    state.tab = 'chats';
+    state.sel = { kind: 'chat', id: chat.id };
+  }
+  if (target.kind === 'file') {
+    const file = data.files.find((item) => item.id === target.fileId);
+    if (!file) return;
+    targetNodeId = file.dep;
+    state.tab = 'files';
+    state.sel = { kind: 'file', id: file.id };
+  }
+  if (!data.nodes[targetNodeId]) return;
+  toast(`Показано в структуре: ${data.nodes[targetNodeId].name}`);
+  focusNodeInTree(targetNodeId);
+}
+
 function openPrimaryChat(nodeId) {
   const node = data.nodes[nodeId];
   if (node.type === 'chat') {
@@ -228,13 +360,14 @@ function renderTree(nodeId, parentId = null, level = 0) {
   const menuOpen = state.openTreeMenuNodeId === nodeId;
   const isDragging = state.drag.draggedNodeId === nodeId;
   const isDropTarget = state.drag.overNodeId === nodeId;
+  const isFlashTarget = state.flashNodeId === nodeId;
 
   const childrenHtml = hasChildren && expanded ? getChildren(nodeId).map((id) => renderTree(id, nodeId, level + 1)).join('') : '';
   const menu = menuOpen ? `<div class='tree-menu'>${(treeMenuByType[node.type] || treeMenuByType.department).map((action) => `<button data-tree-action='${action}' data-node='${nodeId}'>${action}</button>`).join('')}</div>` : '';
 
   return `
     <div class='tree-item-wrap'>
-      <div class='tree-node ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}' style='padding-left:${12 + level * 16}px' data-drop-node='${nodeId}' data-drop-parent='${parentId || ''}'>
+      <div class='tree-node ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''} ${isFlashTarget ? 'focus-flash' : ''}' style='padding-left:${12 + level * 16}px' data-drop-node='${nodeId}' data-drop-parent='${parentId || ''}'>
         <button class='tree-drag-handle' data-drag-handle='${nodeId}' data-parent='${parentId || ''}' draggable='${parentId && state.structureSettings.dragAndDropEnabled ? 'true' : 'false'}'>⋮⋮</button>
         <button class='tree-control' data-chevron='${nodeId}'>${hasChildren ? (expanded ? '▾' : '▸') : '·'}</button>
         <button class='tree-main-hit ${selected ? 'selected' : ''}' data-select-node='${nodeId}'>
@@ -276,10 +409,10 @@ function centerContent() {
 
 function detailsContent() {
   const node = data.nodes[state.node]; const s = state.sel;
-  if (s.kind === 'employee') { const e = data.people.find((x) => x.id === s.id); if (!e) return ''; return `<div class='card'><h3>${e.name}</h3><p>${e.pos}</p><p>Статус: ${e.status}</p><div class='row-actions'><button data-msg='${e.name}'>Написать</button><button>Позвонить</button></div></div>`; }
-  if (s.kind === 'position') { const p = data.positions.find((x) => x.id === s.id); if (!p) return ''; return `<div class='card'><h3>${p.title}</h3><p>${p.status}</p><p>${p.assignee}</p><button>Назначить сотрудника</button></div>`; }
-  if (s.kind === 'chat') { const c = data.chats.find((x) => x.id === s.id); if (!c) return ''; return `<div class='card'><h3>${c.name}</h3><p>${c.type}</p><button data-open-chat='${c.id}'>Открыть</button></div>`; }
-  if (s.kind === 'file') { const f = data.files.find((x) => x.id === s.id); if (!f) return ''; return `<div class='card'><h3>${f.name}</h3><p>${f.type}</p><button data-open-file='${f.id}'>Открыть</button></div>`; }
+  if (s.kind === 'employee') { const e = data.people.find((x) => x.id === s.id); if (!e) return ''; return `<div class='card'><h3>${e.name}</h3><p>${e.pos}</p><p>Статус: ${e.status}</p><div class='row-actions'><button data-msg='${e.name}'>Написать</button><button>Позвонить</button><button data-show-employee='${e.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'position') { const p = data.positions.find((x) => x.id === s.id); if (!p) return ''; return `<div class='card'><h3>${p.title}</h3><p>${p.status}</p><p>${p.assignee}</p><div class='row-actions'><button>Назначить сотрудника</button><button data-show-position='${p.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'chat') { const c = data.chats.find((x) => x.id === s.id); if (!c) return ''; return `<div class='card'><h3>${c.name}</h3><p>${c.type}</p><div class='row-actions'><button data-open-chat='${c.id}'>Открыть</button><button data-show-chat='${c.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'file') { const f = data.files.find((x) => x.id === s.id); if (!f) return ''; return `<div class='card'><h3>${f.name}</h3><p>${f.type}</p><div class='row-actions'><button data-open-file='${f.id}'>Открыть</button><button data-show-file='${f.id}'>Показать в структуре</button></div></div>`; }
   const parentNode = node.parent ? data.nodes[node.parent] : null;
   const primaryChat = data.chats.find((chat) => chat.id === node.primaryChatId) || data.chats.find((chat) => chat.dep === node.id);
   const relatedChats = data.chats.filter((chat) => chat.dep === node.id && (!primaryChat || chat.id !== primaryChat.id));
@@ -289,7 +422,7 @@ function detailsContent() {
     const child = childPreviewByNodeId[childId];
     const expanded = !!state.detailsExpandedChildIds[childId];
     const extraCount = Math.max(child.employees - child.employeeNames.length, 1);
-    return `<div class='child-accordion'><button class='child-accordion-head' data-toggle-details-child='${childId}'><span class='details-node-icon'>${childId === 'plan3' ? '💬' : '▦'}</span><span class='grow'><b>${child.label}</b><div class='muted'>${child.employees} сотрудников</div></span><span class='chevron ${expanded ? 'open' : ''}'>▾</span></button>${expanded ? `<div class='child-accordion-body'><div><b>${child.primaryChatLabel}</b> · ${child.participants} участников</div><div><b>Связанные чаты</b> · ${child.linkedChats.join(' · ')}</div><div><b>Сотрудники</b> · ${child.employees}</div><div>${child.employeeNames.join(', ')} и ещё ${extraCount}</div><div><b>Файлы</b> · ${child.files}</div><div>например: ${child.fileExamples.join(', ')}</div></div>` : ''}</div>`;
+    return `<div class='child-accordion'><button class='child-accordion-head' data-toggle-details-child='${childId}'><span class='details-node-icon'>${childId === 'plan3' ? '💬' : '▦'}</span><span class='grow'><b>${child.label}</b><div class='muted'>${child.employees} сотрудников</div></span><span class='chevron ${expanded ? 'open' : ''}'>▾</span></button>${expanded ? `<div class='child-accordion-body'><div><b>${child.primaryChatLabel}</b> · ${child.participants} участников</div><div><b>Связанные чаты</b> · ${child.linkedChats.join(' · ')}</div><div><b>Сотрудники</b> · ${child.employees}</div><div>${child.employeeNames.join(', ')} и ещё ${extraCount}</div><div><b>Файлы</b> · ${child.files}</div><div>например: ${child.fileExamples.join(', ')}</div><button class='link-btn' data-show-in-structure='${childId}'>Показать в структуре</button></div>` : ''}</div>`;
   }).join('');
   const relatedChatRows = (relatedChats.length ? relatedChats : [
     { id: 'rc1', name: 'Общий чат ФЭО', participants: 52 },
@@ -458,13 +591,11 @@ function bindInteractions() {
   });
   app.querySelectorAll('[data-msg]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Написать: ${btn.dataset.msg}`); });
   app.querySelectorAll('[data-close-details]').forEach((btn) => btn.onclick = () => toast('Карточка свернута (mock)'));
-  app.querySelectorAll('[data-show-in-structure]').forEach((btn) => btn.onclick = () => {
-    const nodeId = btn.dataset.showInStructure;
-    if (data.nodes[nodeId]) state.node = nodeId;
-    state.sel = { kind: 'node', id: state.node };
-    toast(`Показано в структуре: ${data.nodes[state.node].name}`);
-    render();
-  });
+  app.querySelectorAll('[data-show-in-structure]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'node', nodeId: btn.dataset.showInStructure }));
+  app.querySelectorAll('[data-show-employee]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'employee', employeeId: btn.dataset.showEmployee }));
+  app.querySelectorAll('[data-show-position]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'position', positionId: btn.dataset.showPosition }));
+  app.querySelectorAll('[data-show-chat]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'chat', chatId: btn.dataset.showChat }));
+  app.querySelectorAll('[data-show-file]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'file', fileId: btn.dataset.showFile }));
   app.querySelectorAll('[data-open-profile]').forEach((btn) => btn.onclick = () => toast(`Открыть профиль: ${btn.dataset.openProfile}`));
   app.querySelectorAll('[data-quick-leader]').forEach((btn) => btn.onclick = () => toast(`Быстрые действия: ${btn.dataset.quickLeader}`));
   app.querySelectorAll('[data-open-all-chats]').forEach((btn) => btn.onclick = () => toast(`Смотреть все чаты: ${btn.dataset.openAllChats}`));

@@ -44,6 +44,7 @@ small, .muted { color: #666; }
 .tree-drag-handle:hover, .tree-drag-handle:focus-visible { border-color: #a8a8a8; background: #f2f2f2; }
 .tree-node.dragging { opacity: 0.55; }
 .tree-node.drop-target { outline: 1px dashed #8c8c8c; outline-offset: -2px; }
+.tree-node.focus-flash { outline: 2px solid #8d8d8d; background: #f1f1f1; transition: background 220ms ease; }
 
 .center-column { display: flex; flex-direction: column; }
 .content-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px; border-bottom: 1px solid #d0d0d0; }

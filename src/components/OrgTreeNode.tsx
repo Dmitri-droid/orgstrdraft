@@ -21,6 +21,7 @@ interface Props {
   menuItemsByType: Record<OrgNode['type'], string[]>;
   nodeTypeLabel: Record<OrgNode['type'], string>;
   nodes: Record<string, OrgNode>;
+  flashNodeId?: string | null;
 }
 
 const nodeIcons: Record<OrgNode['type'], string> = {
@@ -32,7 +33,7 @@ const nodeIcons: Record<OrgNode['type'], string> = {
   system: '☰',
 };
 
-export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, query, openMenuNodeId, dragState, dragEnabled, onSelect, onToggle, onMenuToggle, onMenuAction, onDragStart, onDragOver, onDrop, onDragEnd, menuItemsByType, nodeTypeLabel, nodes }: Props) {
+export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, query, openMenuNodeId, dragState, dragEnabled, onSelect, onToggle, onMenuToggle, onMenuAction, onDragStart, onDragOver, onDrop, onDragEnd, menuItemsByType, nodeTypeLabel, nodes, flashNodeId }: Props) {
   const node = nodes[nodeId];
   const isActive = activeNodeId === nodeId;
   const hasChildren = node.childrenIds.length > 0;
@@ -40,6 +41,7 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
   const isMenuOpen = openMenuNodeId === nodeId;
   const isDragging = dragState.draggedNodeId === nodeId;
   const isDropTarget = dragState.overNodeId === nodeId;
+  const isFlashTarget = flashNodeId === nodeId;
   const matched = !query || node.name.toLowerCase().includes(query.toLowerCase());
 
   if (!matched && !node.childrenIds.some((id) => nodes[id].name.toLowerCase().includes(query.toLowerCase()))) {
@@ -49,8 +51,9 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
   return (
     <div className="tree-item-wrap">
       <div
-        className={`tree-node ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+        className={`tree-node ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''} ${isFlashTarget ? 'focus-flash' : ''}`}
         style={{ paddingLeft: `${12 + level * 16}px` }}
+        data-node-id={nodeId}
         onDragOver={(event) => {
           event.preventDefault();
           if (!dragEnabled) return;
@@ -162,6 +165,7 @@ export function OrgTreeNode({ nodeId, parentId, level, activeNodeId, expanded, q
           menuItemsByType={menuItemsByType}
           nodeTypeLabel={nodeTypeLabel}
           nodes={nodes}
+          flashNodeId={flashNodeId}
         />
       ))}
     </div>

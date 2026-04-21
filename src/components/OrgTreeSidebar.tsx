@@ -10,6 +10,8 @@ interface Props {
   resetOrderSignal: number;
   onAction: (message: string) => void;
   onOpenAddModal: (nodeId: string, entityType?: AddEntityType) => void;
+  focusNodeId?: string | null;
+  onFocusHandled?: () => void;
 }
 
 const filters = ['Все', 'Подразделения', 'Люди', 'Должности', 'Чаты', 'Вакансии'];
@@ -29,7 +31,7 @@ const buildInitialOrder = (): Record<string, string[]> =>
     return acc;
   }, {});
 
-export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, onSelectNode, onAction, onOpenAddModal }: Props) {
+export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, onSelectNode, onAction, onOpenAddModal, focusNodeId, onFocusHandled }: Props) {
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [openMenuNodeId, setOpenMenuNodeId] = useState<string | null>(null);
@@ -41,6 +43,7 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
     overNodeId: null,
   });
   const sidebarRef = useRef<HTMLElement | null>(null);
+  const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
 
   const orderedNodes = useMemo<Record<string, OrgNode>>(
     () =>
@@ -83,6 +86,33 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
     setDragState({ draggedNodeId: null, sourceParentId: null, overNodeId: null });
     setOpenMenuNodeId(null);
   }, [resetOrderSignal]);
+
+  useEffect(() => {
+    if (!focusNodeId || !orderedNodes[focusNodeId]) return;
+
+    const path: string[] = [];
+    let current: string | null = focusNodeId;
+    while (current) {
+      path.push(current);
+      current = orderedNodes[current]?.parentId ?? null;
+    }
+    setExpanded((prev) => {
+      const next = { ...prev };
+      path.forEach((id) => {
+        if (orderedNodes[id]?.childrenIds?.length) next[id] = true;
+      });
+      return next;
+    });
+
+    window.requestAnimationFrame(() => {
+      const nodeElement = sidebarRef.current?.querySelector<HTMLElement>(`[data-node-id="${focusNodeId}"]`);
+      if (!nodeElement) return;
+      nodeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setFlashNodeId(focusNodeId);
+      window.setTimeout(() => setFlashNodeId((prev) => (prev === focusNodeId ? null : prev)), 1100);
+      onFocusHandled?.();
+    });
+  }, [focusNodeId, orderedNodes, onFocusHandled]);
 
   const reorderWithinLevel = (parentId: string, draggedNodeId: string, overNodeId: string) => {
     setChildOrderByParent((prev) => {
@@ -172,6 +202,7 @@ export function OrgTreeSidebar({ activeNodeId, dragEnabled, resetOrderSignal, on
           menuItemsByType={menuItemsByType}
           nodeTypeLabel={nodeTypeLabel}
           nodes={orderedNodes}
+          flashNodeId={flashNodeId}
         />
       </div>
     </aside>

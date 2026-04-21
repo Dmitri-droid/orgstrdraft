@@ -3,7 +3,7 @@ import { chats, employees, files, nodeTypeLabel, orgNodes, positions } from './d
 import { AddEntityModal } from './components/AddEntityModal';
 import { ChangeHistoryDrawer, HistoryEntry } from './components/ChangeHistoryDrawer';
 import { ContentPanel } from './components/ContentPanel';
-import { DetailsPanel } from './components/DetailsPanel';
+import { DetailsPanel, ShowInStructureTarget } from './components/DetailsPanel';
 import { OrgTreeSidebar } from './components/OrgTreeSidebar';
 import { StructureSettingsDrawer, StructureSettings } from './components/StructureSettingsDrawer';
 import { AddEntityType, Selection, TabType } from './types/models';
@@ -48,6 +48,7 @@ export function App() {
   const [isStructureSettingsOpen, setIsStructureSettingsOpen] = useState(false);
   const [isResetStructureConfirmOpen, setIsResetStructureConfirmOpen] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [resetStructureOrderSignal, setResetStructureOrderSignal] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([
     { id: 'h-1', departmentId: 'feo', eventType: 'reordered_nodes', description: 'Перемещён узел "Штаб ФЭО-Б"', actor: 'Иван Петров', timeLabel: 'сегодня, 14:32', relatedEntity: 'Штаб ФЭО-Б' },
@@ -117,6 +118,57 @@ export function App() {
     showToast(`Открыт основной чат: ${primaryChat.name}`);
   };
 
+  const showInStructure = (target: ShowInStructureTarget) => {
+    let targetNodeId = activeNodeId;
+    let nextTab: TabType | null = null;
+    let nextSelection: Selection | null = null;
+
+    if (target.kind === 'node') {
+      targetNodeId = target.nodeId;
+      nextSelection = { kind: 'node', id: target.nodeId };
+    }
+
+    if (target.kind === 'employee') {
+      const employee = employees.find((item) => item.id === target.employeeId);
+      if (!employee) return;
+      targetNodeId = employee.departmentId;
+      nextTab = 'people';
+      nextSelection = { kind: 'employee', id: employee.id };
+    }
+
+    if (target.kind === 'position') {
+      const position = positions.find((item) => item.id === target.positionId);
+      if (!position) return;
+      targetNodeId = position.departmentId;
+      nextTab = 'positions';
+      nextSelection = { kind: 'position', id: position.id };
+    }
+
+    if (target.kind === 'chat') {
+      const chat = chats.find((item) => item.id === target.chatId);
+      if (!chat) return;
+      targetNodeId = chat.nodeId && orgNodes[chat.nodeId] ? chat.nodeId : chat.departmentId;
+      nextTab = 'chats';
+      nextSelection = { kind: 'chat', id: chat.id };
+    }
+
+    if (target.kind === 'file') {
+      const file = files.find((item) => item.id === target.fileId);
+      if (!file) return;
+      targetNodeId = file.departmentId;
+      nextTab = 'files';
+      nextSelection = { kind: 'file', id: file.id };
+    }
+
+    if (!orgNodes[targetNodeId]) return;
+
+    setActiveNodeId(targetNodeId);
+    setSelection(nextSelection ?? { kind: 'node', id: targetNodeId });
+    if (nextTab) setActiveTab(nextTab);
+    setFocusNodeId(targetNodeId);
+    showToast(`Показано в структуре: ${orgNodes[targetNodeId].name}`);
+  };
+
   const scopedEmployees = (employeeOrderByDepartment[activeNodeId] ?? [])
     .map((id) => employees.find((employee) => employee.id === id))
     .filter((employee): employee is NonNullable<typeof employee> => Boolean(employee));
@@ -151,6 +203,8 @@ export function App() {
           activeNodeId={activeNodeId}
           dragEnabled={structureSettings.dragAndDropEnabled}
           resetOrderSignal={resetStructureOrderSignal}
+          focusNodeId={focusNodeId}
+          onFocusHandled={() => setFocusNodeId(null)}
           onAction={showToast}
           onOpenAddModal={openAddModal}
           onSelectNode={(id) => {
@@ -191,6 +245,7 @@ export function App() {
           onPrimaryChatOpen={() => openPrimaryChat(activeNodeId)}
           onOpenAddModal={() => openAddModal(activeNodeId)}
           onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+          onShowInStructure={showInStructure}
           onAction={showToast}
         />
       </div>

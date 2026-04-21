@@ -2,6 +2,13 @@ import { useMemo, useState } from 'react';
 import { orgNodes } from '../data/mockData';
 import { DepartmentChat, DepartmentFile, Employee, OrgNode, Position, Selection } from '../types/models';
 
+export type ShowInStructureTarget =
+  | { kind: 'node'; nodeId: string }
+  | { kind: 'employee'; employeeId: string }
+  | { kind: 'position'; positionId: string }
+  | { kind: 'chat'; chatId: string }
+  | { kind: 'file'; fileId: string };
+
 interface Props {
   selection: Selection;
   node: OrgNode;
@@ -13,30 +20,31 @@ interface Props {
   onPrimaryChatOpen: () => void;
   onOpenAddModal: () => void;
   onOpenHistory: () => void;
+  onShowInStructure: (target: ShowInStructureTarget) => void;
   onAction: (message: string) => void;
 }
 
-export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onOpenAddModal, onOpenHistory, onAction }: Props) {
+export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positions, chats, files, onPrimaryChatOpen, onOpenAddModal, onOpenHistory, onShowInStructure, onAction }: Props) {
   const panel = (() => {
     if (selection.kind === 'employee') {
       const employee = employees.find((item) => item.id === selection.id);
       if (!employee) return null;
-      return <EmployeeCard employee={employee} onAction={onAction} />;
+      return <EmployeeCard employee={employee} onAction={onAction} onShowInStructure={onShowInStructure} />;
     }
     if (selection.kind === 'position') {
       const position = positions.find((item) => item.id === selection.id);
       if (!position) return null;
-      return <PositionCard position={position} onAction={onAction} />;
+      return <PositionCard position={position} onAction={onAction} onShowInStructure={onShowInStructure} />;
     }
     if (selection.kind === 'chat') {
       const chat = chats.find((item) => item.id === selection.id);
       if (!chat) return null;
-      return <ChatCard chat={chat} onAction={onAction} />;
+      return <ChatCard chat={chat} onAction={onAction} onShowInStructure={onShowInStructure} />;
     }
     if (selection.kind === 'file') {
       const file = files.find((item) => item.id === selection.id);
       if (!file) return null;
-      return <FileCard file={file} onAction={onAction} />;
+      return <FileCard file={file} onAction={onAction} onShowInStructure={onShowInStructure} />;
     }
 
     // Если выбран в дереве chat-узел, справа показываем карточку чата, а не карточку подразделения.
@@ -55,6 +63,7 @@ export function DetailsPanel({ selection, node, nodeTypeLabel, employees, positi
         onPrimaryChatOpen={onPrimaryChatOpen}
         onOpenAddModal={onOpenAddModal}
         onOpenHistory={onOpenHistory}
+        onShowInStructure={onShowInStructure}
         onAction={onAction}
       />
     );
@@ -100,6 +109,7 @@ function DepartmentCard({
   onPrimaryChatOpen,
   onOpenAddModal,
   onOpenHistory,
+  onShowInStructure,
   onAction,
 }: {
   node: OrgNode;
@@ -110,6 +120,7 @@ function DepartmentCard({
   onPrimaryChatOpen: () => void;
   onOpenAddModal: () => void;
   onOpenHistory: () => void;
+  onShowInStructure: (target: ShowInStructureTarget) => void;
   onAction: (message: string) => void;
 }) {
   const [expandedChildIds, setExpandedChildIds] = useState<Record<string, boolean>>({});
@@ -153,7 +164,7 @@ function DepartmentCard({
       <div className="details-section">
         <div className="actions-row">
           <button onClick={onPrimaryChatOpen}>Открыть чат</button>
-          <button onClick={() => onAction(`Показать в структуре: ${node.name}`)}>Показать в структуре</button>
+          <button onClick={() => onShowInStructure({ kind: 'node', nodeId: node.id })}>Показать в структуре</button>
           <button onClick={() => onAction(`Написать руководителю: ${node.leader}`)}>Написать руководителю</button>
         </div>
       </div>
@@ -179,7 +190,7 @@ function DepartmentCard({
           <h4>Подчиняется / входит в</h4>
           <div className="subtle-box">
             <b>{parentNode.name}</b>
-            <button className="link-btn" onClick={() => onAction(`Показать в структуре: ${parentNode.name}`)}>Показать в структуре</button>
+            <button className="link-btn" onClick={() => onShowInStructure({ kind: 'node', nodeId: parentNode.id })}>Показать в структуре</button>
           </div>
         </div>
       )}
@@ -217,6 +228,7 @@ function DepartmentCard({
                     {preview?.employeeNames?.length ? <div>{preview.employeeNames.join(', ')} и ещё {Math.max(peopleCount - preview.employeeNames.length, 1)}</div> : null}
                     <div><b>Файлы</b> · {fileCount}</div>
                     {preview?.fileExamples?.length ? <div>например: {preview.fileExamples.join(', ')}</div> : null}
+                    <button className="link-btn" onClick={() => onShowInStructure({ kind: 'node', nodeId: id })}>Показать в структуре</button>
                   </div>
                 )}
               </div>
@@ -284,18 +296,18 @@ function DepartmentCard({
   );
 }
 
-function EmployeeCard({ employee, onAction }: { employee: Employee; onAction: (message: string) => void }) {
-  return <div className="card"><h3>{employee.name}</h3><p>{employee.position}</p><p>Подразделение: {employee.departmentId}</p><p>Статус: {employee.status}</p><p>Руководитель: {employee.manager}</p><p>Контакты: {employee.contacts}</p><p>Дата назначения: {employee.appointedAt}</p><div className="actions-row"><button onClick={() => onAction(`Написать: ${employee.name}`)}>Написать</button><button onClick={() => onAction(`Позвонить: ${employee.name}`)}>Позвонить</button><button onClick={() => onAction('Открыть профиль')}>Профиль</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
+function EmployeeCard({ employee, onAction, onShowInStructure }: { employee: Employee; onAction: (message: string) => void; onShowInStructure: (target: ShowInStructureTarget) => void }) {
+  return <div className="card"><h3>{employee.name}</h3><p>{employee.position}</p><p>Подразделение: {employee.departmentId}</p><p>Статус: {employee.status}</p><p>Руководитель: {employee.manager}</p><p>Контакты: {employee.contacts}</p><p>Дата назначения: {employee.appointedAt}</p><div className="actions-row"><button onClick={() => onAction(`Написать: ${employee.name}`)}>Написать</button><button onClick={() => onAction(`Позвонить: ${employee.name}`)}>Позвонить</button><button onClick={() => onAction('Открыть профиль')}>Профиль</button><button onClick={() => onShowInStructure({ kind: 'employee', employeeId: employee.id })}>Показать в структуре</button></div></div>;
 }
 
-function PositionCard({ position, onAction }: { position: Position; onAction: (message: string) => void }) {
-  return <div className="card"><h3>{position.title}</h3><p>Статус: {position.status === 'occupied' ? 'Занята' : 'Вакантна'}</p><p>Назначенный сотрудник: {position.assignee}</p><p>Подчиненность: {position.reportsTo}</p><p>{position.description}</p><p>Дата создания: {position.createdAt}</p><div className="actions-row"><button onClick={() => onAction('Назначить сотрудника')}>Назначить сотрудника</button><button onClick={() => onAction('Редактировать должность')}>Редактировать</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
+function PositionCard({ position, onAction, onShowInStructure }: { position: Position; onAction: (message: string) => void; onShowInStructure: (target: ShowInStructureTarget) => void }) {
+  return <div className="card"><h3>{position.title}</h3><p>Статус: {position.status === 'occupied' ? 'Занята' : 'Вакантна'}</p><p>Назначенный сотрудник: {position.assignee}</p><p>Подчиненность: {position.reportsTo}</p><p>{position.description}</p><p>Дата создания: {position.createdAt}</p><div className="actions-row"><button onClick={() => onAction('Назначить сотрудника')}>Назначить сотрудника</button><button onClick={() => onAction('Редактировать должность')}>Редактировать</button><button onClick={() => onShowInStructure({ kind: 'position', positionId: position.id })}>Показать в структуре</button></div></div>;
 }
 
-function ChatCard({ chat, onAction }: { chat: DepartmentChat; onAction: (message: string) => void }) {
-  return <div className="card"><h3>{chat.name}</h3><p>Тип: {chat.chatType}</p><p>Подразделение: {chat.departmentId}</p><p>Связано с: {chat.linkedEntity}</p><div className="actions-row"><button onClick={() => onAction(`Открыть чат: ${chat.name}`)}>Открыть</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
+function ChatCard({ chat, onAction, onShowInStructure }: { chat: DepartmentChat; onAction: (message: string) => void; onShowInStructure: (target: ShowInStructureTarget) => void }) {
+  return <div className="card"><h3>{chat.name}</h3><p>Тип: {chat.chatType}</p><p>Подразделение: {chat.departmentId}</p><p>Связано с: {chat.linkedEntity}</p><div className="actions-row"><button onClick={() => onAction(`Открыть чат: ${chat.name}`)}>Открыть</button><button onClick={() => onShowInStructure({ kind: 'chat', chatId: chat.id })}>Показать в структуре</button></div></div>;
 }
 
-function FileCard({ file, onAction }: { file: DepartmentFile; onAction: (message: string) => void }) {
-  return <div className="card"><h3>{file.name}</h3><p>Тип: {file.fileType}</p><p>Владелец: {file.owner}</p><p>Подразделение: {file.departmentId}</p><p>Связано с: {file.linkedEntity}</p><div className="actions-row"><button onClick={() => onAction(`Открыть файл: ${file.name}`)}>Открыть</button><button onClick={() => onAction('Еще действия')}>Еще</button></div></div>;
+function FileCard({ file, onAction, onShowInStructure }: { file: DepartmentFile; onAction: (message: string) => void; onShowInStructure: (target: ShowInStructureTarget) => void }) {
+  return <div className="card"><h3>{file.name}</h3><p>Тип: {file.fileType}</p><p>Владелец: {file.owner}</p><p>Подразделение: {file.departmentId}</p><p>Связано с: {file.linkedEntity}</p><div className="actions-row"><button onClick={() => onAction(`Открыть файл: ${file.name}`)}>Открыть</button><button onClick={() => onShowInStructure({ kind: 'file', fileId: file.id })}>Показать в структуре</button></div></div>;
 }
