@@ -229,7 +229,7 @@ const historyEventIcon = {
 };
 
 function toast(message) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = message; document.body.append(t); setTimeout(() => t.remove(), 1500); }
-function breadcrumb(id) { const out = []; let cur = id; while (cur) { out.unshift(data.nodes[cur].name); cur = data.nodes[cur].parent; } return out.join(' / '); }
+function breadcrumbNodeIds(id) { const out = []; let cur = id; while (cur) { out.unshift(cur); cur = data.nodes[cur].parent; } return out; }
 function addHistoryEntry(entry) { state.historyEntries = [{ id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...entry }, ...state.historyEntries]; }
 function escapeHtml(text) { return String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
 function highlightMatch(text, query) {
@@ -350,6 +350,17 @@ function focusNodeInTree(targetNodeId) {
   state.node = targetNodeId;
   state.sel = { kind: 'node', id: targetNodeId };
   state.pendingRevealNodeId = targetNodeId;
+}
+function navigateToNode(nodeId, { reveal = false } = {}) {
+  if (!data.nodes[nodeId]) return;
+  if (reveal) {
+    focusNodeInTree(nodeId);
+  } else {
+    state.node = nodeId;
+    state.sel = { kind: 'node', id: nodeId };
+    state.pendingRevealNodeId = null;
+  }
+  state.tab = data.nodes[nodeId].type === 'chat' ? 'chats' : 'people';
 }
 
 function showInStructure(target) {
@@ -515,6 +526,9 @@ function list(items, kind, template) { if (!items.length) return `<div class='em
 
 function centerContent() {
   const node = data.nodes[state.node];
+  const breadcrumbs = breadcrumbNodeIds(state.node)
+    .map((nodeId, index, list) => `<button class='crumb-btn ${nodeId === state.node ? 'active' : ''}' data-breadcrumb-node='${nodeId}'>${data.nodes[nodeId].name}</button>${index < list.length - 1 ? "<span class='crumb-sep'>/</span>" : ''}`)
+    .join('');
   const people = (state.employeeOrderByDepartment[state.node] || [])
     .map((id) => data.people.find((x) => x.id === id))
     .filter(Boolean);
@@ -528,7 +542,7 @@ function centerContent() {
   if (state.tab === 'files') content = list(files, 'file', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.owner}</div></div><button data-open-file='${x.id}'>Открыть</button>`);
   if (state.tab === 'about') content = `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
-  return `<div class='header'><div><div class='muted'>${breadcrumb(state.node)}</div><h2>${node.name}</h2><div class='muted'>${node.summary}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
+  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${node.summary}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
 function detailsContent() {
@@ -560,7 +574,7 @@ function detailsContent() {
   const leaderTitle = node.id === 'feo' ? 'Руководитель штаба ФЭО' : 'Руководитель подразделения';
   const icon = node.type === 'chat' ? '💬' : node.type === 'company' ? '🏢' : '▦';
 
-  return `<div class='card details-rich-card'><div class='details-head'><div class='details-head-main'><span class='details-node-icon'>${icon}</span><div><h3>${node.name}</h3><small>${node.typeLabel}</small></div></div><button data-close-details='1'>✕</button></div><div class='details-section'><p>${node.id === 'feo' ? 'Финансово-экономическое обеспечение деятельности компании. Планирование, анализ, отчетность.' : node.desc}</p></div><div class='details-section'><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-show-in-structure='${node.id}'>Показать в структуре</button><button data-msg='${node.leader}'>Написать руководителю</button></div></div><div class='details-section'><h4>Руководитель</h4><div class='leader-card'><div class='avatar'>${node.leader.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${node.leader}</b><div class='muted'>${leaderTitle}</div><button class='link-btn' data-open-profile='${node.leader}'>Открыть профиль</button></div><div class='row-actions'><button data-msg='${node.leader}'>✉</button><button data-quick-leader='${node.leader}'>⋯</button></div></div></div>${parentNode ? `<div class='details-section'><h4>Подчиняется / входит в</h4><div class='subtle-box'><b>${parentNode.name}</b><button class='link-btn' data-show-in-structure='${parentNode.id}'>Показать в структуре</button></div></div>` : ''}<div class='details-section'><h4>Подчинённые подразделения (${childIds.length})</h4><div class='details-list-stack'>${childBlocks || "<div class='empty'>Нет дочерних подразделений.</div>"}</div></div><div class='details-section'><h4>Основной чат</h4><div class='subtle-box'><div><b>${primaryChat ? primaryChat.name : `Чат ${node.name}`}</b><span class='wire-badge'>основной</span></div><div class='muted'>${primaryChat ? primaryChat.participants : 38} участников</div><button data-primary-chat='${node.id}'>Открыть чат</button></div></div><div class='details-section'><h4>Связанные чаты</h4><div class='details-list-stack'>${relatedChatRows}<button class='link-btn' data-open-all-chats='${node.id}'>Смотреть все</button></div></div><div class='details-section'><h4>Файлы и документы</h4><div class='details-list-stack'><div class='subtle-box'><b>Бюджет и планирование</b><small>24 файла</small></div>${fileRows}<button data-open-file-section='${node.id}'>Открыть раздел</button></div></div><div class='details-section'><h4>Быстрые действия</h4><div class='details-list-stack'><button data-primary-chat='${node.id}'>Открыть основной чат</button><button data-open-people='${node.id}'>Перейти к сотрудникам</button><button data-history='${node.id}'>Показать историю изменений</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div></div>`;
+  return `<div class='card details-rich-card'>${parentNode ? `<div class='row-actions'><button data-go-parent='${parentNode.id}'>← назад</button></div>` : ''}<div class='details-head'><div class='details-head-main'><span class='details-node-icon'>${icon}</span><div><h3>${node.name}</h3><small>${node.typeLabel}</small></div></div></div><div class='details-section'><p>${node.id === 'feo' ? 'Финансово-экономическое обеспечение деятельности компании. Планирование, анализ, отчетность.' : node.desc}</p></div><div class='details-section'><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-show-in-structure='${node.id}'>Показать в структуре</button><button data-msg='${node.leader}'>Написать руководителю</button></div></div><div class='details-section'><h4>Руководитель</h4><div class='leader-card'><div class='avatar'>${node.leader.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${node.leader}</b><div class='muted'>${leaderTitle}</div><button class='link-btn' data-open-profile='${node.leader}'>Открыть профиль</button></div><div class='row-actions'><button data-msg='${node.leader}'>✉</button><button data-quick-leader='${node.leader}'>⋯</button></div></div></div>${parentNode ? `<div class='details-section'><h4>Подчиняется / входит в</h4><div class='subtle-box'><b>${parentNode.name}</b><button class='link-btn' data-show-in-structure='${parentNode.id}'>Показать в структуре</button></div></div>` : ''}<div class='details-section'><h4>Подчинённые подразделения (${childIds.length})</h4><div class='details-list-stack'>${childBlocks || "<div class='empty'>Нет дочерних подразделений.</div>"}</div></div><div class='details-section'><h4>Основной чат</h4><div class='subtle-box'><div><b>${primaryChat ? primaryChat.name : `Чат ${node.name}`}</b><span class='wire-badge'>основной</span></div><div class='muted'>${primaryChat ? primaryChat.participants : 38} участников</div><button data-primary-chat='${node.id}'>Открыть чат</button></div></div><div class='details-section'><h4>Связанные чаты</h4><div class='details-list-stack'>${relatedChatRows}<button class='link-btn' data-open-all-chats='${node.id}'>Смотреть все</button></div></div><div class='details-section'><h4>Файлы и документы</h4><div class='details-list-stack'><div class='subtle-box'><b>Бюджет и планирование</b><small>24 файла</small></div>${fileRows}<button data-open-file-section='${node.id}'>Открыть раздел</button></div></div><div class='details-section'><h4>Быстрые действия</h4><div class='details-list-stack'><button data-primary-chat='${node.id}'>Открыть основной чат</button><button data-open-people='${node.id}'>Перейти к сотрудникам</button><button data-history='${node.id}'>Показать историю изменений</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div></div>`;
 }
 
 function modalContent() {
@@ -654,15 +668,16 @@ function bindInteractions() {
     const found = state.treeSearchResults.find((item) => item.id === btn.dataset.searchResultId);
     applyTreeSearchResult(found);
   });
+  app.querySelectorAll('[data-breadcrumb-node]').forEach((btn) => btn.onclick = () => {
+    navigateToNode(btn.dataset.breadcrumbNode, { reveal: true });
+    render();
+  });
   app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; renderForTreeInteraction(); });
   app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => {
     const id = btn.dataset.selectNode;
-    state.node = id;
-    state.sel = { kind: 'node', id };
-    state.tab = data.nodes[id].type === 'chat' ? 'chats' : 'people';
+    navigateToNode(id);
     state.openTreeMenuNodeId = null;
     state.isCenterMenuOpen = false;
-    state.pendingRevealNodeId = null;
     renderForTreeInteraction();
   });
   app.querySelectorAll('[data-open-tree-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.openTreeMenu; state.openTreeMenuNodeId = state.openTreeMenuNodeId === id ? null : id; state.isCenterMenuOpen = false; renderForTreeInteraction(); });
@@ -776,7 +791,10 @@ function bindInteractions() {
     };
   });
   app.querySelectorAll('[data-msg]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Написать: ${btn.dataset.msg}`); });
-  app.querySelectorAll('[data-close-details]').forEach((btn) => btn.onclick = () => toast('Карточка свернута (mock)'));
+  app.querySelectorAll('[data-go-parent]').forEach((btn) => btn.onclick = () => {
+    navigateToNode(btn.dataset.goParent, { reveal: true });
+    render();
+  });
   app.querySelectorAll('[data-show-in-structure]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'node', nodeId: btn.dataset.showInStructure }));
   app.querySelectorAll('[data-show-employee]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'employee', employeeId: btn.dataset.showEmployee }));
   app.querySelectorAll('[data-show-position]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'position', positionId: btn.dataset.showPosition }));
