@@ -301,6 +301,24 @@ function updateTreeSearch(nextValue) {
     renderForTreeInteraction();
   }, 150);
 }
+function clearTreeSearch({ keepFocus = false } = {}) {
+  if (treeSearchDebounceTimerId !== null) {
+    window.clearTimeout(treeSearchDebounceTimerId);
+    treeSearchDebounceTimerId = null;
+  }
+  state.treeSearchInput = '';
+  state.treeSearchQuery = '';
+  state.treeSearchResults = [];
+  state.treeSearchDropdownOpen = false;
+  state.treeSearchActiveIndex = 0;
+  renderForTreeInteraction();
+  if (keepFocus) {
+    window.requestAnimationFrame(() => {
+      const input = app.querySelector('[data-tree-search-input]');
+      if (input) input.focus();
+    });
+  }
+}
 function applyTreeSearchResult(result) {
   if (!result) return;
   state.treeSearchDropdownOpen = false;
@@ -586,11 +604,12 @@ function render({ preserveTreeScroll = false } = {}) {
     state.treeSearchActiveIndex = Math.max(searchResults.length - 1, 0);
   }
   const dropdownVisible = state.treeSearchDropdownOpen && state.treeSearchQuery.trim().length > 0;
+  const showSearchClear = state.treeSearchInput.length > 0;
   const searchDropdown = dropdownVisible
     ? `<div class='tree-search-dropdown'>${searchResults.map((result, index) => `<button class='tree-search-item ${index === state.treeSearchActiveIndex ? 'active' : ''}' data-search-result-id='${result.id}'><div>${highlightMatch(result.title, state.treeSearchQuery)}</div><small>${result.typeLabel} · ${highlightMatch(result.context, state.treeSearchQuery)}</small></button>`).join('')}</div>`
     : '';
   const previousTreeScrollTop = preserveTreeScroll ? app.querySelector('.panel.left')?.scrollTop ?? null : null;
-  app.innerHTML = `<div class='layout'><div class='panel left ${state.treeSearchQuery.trim() ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/>${searchDropdown}</div><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root', null, 0, searchModel)}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
+  app.innerHTML = `<div class='layout'><div class='panel left ${state.treeSearchQuery.trim() ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/><button class='tree-search-clear ${showSearchClear ? 'visible' : ''}' data-clear-tree-search='1' aria-label='Очистить поиск'>×</button>${searchDropdown}</div><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root', null, 0, searchModel)}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
   if (preserveTreeScroll && state.pendingRevealNodeId === null && previousTreeScrollTop !== null) {
     const currentTreePanel = app.querySelector('.panel.left');
@@ -627,6 +646,11 @@ function bindInteractions() {
       }
     };
   }
+  app.querySelectorAll('[data-clear-tree-search]').forEach((btn) => btn.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearTreeSearch({ keepFocus: true });
+  });
   app.querySelectorAll('[data-search-result-id]').forEach((btn) => btn.onclick = () => {
     const found = state.treeSearchResults.find((item) => item.id === btn.dataset.searchResultId);
     applyTreeSearchResult(found);

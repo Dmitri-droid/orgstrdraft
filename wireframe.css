@@ -12,7 +12,10 @@ button:hover { background: #f2f2f2; cursor: pointer; }
 
 .chips, .tabs, .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .tree-search-wrap { position: relative; margin-bottom: 8px; }
-.tree-search-wrap input { width: 100%; }
+.tree-search-wrap input { width: 100%; padding-right: 30px; }
+.tree-search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 1px solid transparent; background: transparent; color: #666; width: 20px; height: 20px; border-radius: 999px; padding: 0; display: none; align-items: center; justify-content: center; line-height: 1; }
+.tree-search-clear.visible { display: inline-flex; }
+.tree-search-clear:hover, .tree-search-clear:focus-visible { border-color: #b8b8b8; background: #f3f3f3; color: #222; }
 .tree-search-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; border: 1px solid #c8c8c8; background: #fff; z-index: 30; max-height: 260px; overflow: auto; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
 .tree-search-item { width: 100%; border: none; border-bottom: 1px solid #ececec; text-align: left; background: #fff; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
 .tree-search-item:last-child { border-bottom: none; }
