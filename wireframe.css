@@ -11,6 +11,15 @@ button:hover { background: #f2f2f2; cursor: pointer; }
 .grow { flex: 1; }
 
 .chips, .tabs, .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tree-search-wrap { position: relative; margin-bottom: 8px; }
+.tree-search-wrap input { width: 100%; }
+.tree-search-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; border: 1px solid #c8c8c8; background: #fff; z-index: 30; max-height: 260px; overflow: auto; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
+.tree-search-item { width: 100%; border: none; border-bottom: 1px solid #ececec; text-align: left; background: #fff; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.tree-search-item:last-child { border-bottom: none; }
+.tree-search-item.active, .tree-search-item:hover { background: #f3f3f3; }
+.tree-search-item small { color: #666; font-size: 11px; }
+.left.is-filtered .tree-item-wrap.filtered-out { display: none; }
+mark { background: #fff2a8; padding: 0 1px; }
 .tree-item-wrap { position: relative; }
 .tree-node { display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid transparent; }
 .tree-control, .tree-menu-btn { border: 1px solid transparent; background: transparent; }

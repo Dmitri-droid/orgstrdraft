@@ -133,6 +133,11 @@ const initialEmployeeOrderByDepartment = data.people.reduce((acc, employee) => {
 const state = {
   node: 'root', tab: 'people', sel: { kind: 'node', id: 'root' }, exp: { root: true, hq: true, feo: true },
   openTreeMenuNodeId: null, isCenterMenuOpen: false, isAddModalOpen: false, addType: 'employee', addContextNodeId: 'root',
+  treeSearchInput: '',
+  treeSearchQuery: '',
+  treeSearchResults: [],
+  treeSearchDropdownOpen: false,
+  treeSearchActiveIndex: 0,
   childOrderByParent: initialChildOrder,
   employeeOrderByDepartment: initialEmployeeOrderByDepartment,
   drag: { draggedNodeId: null, sourceParentId: null, overNodeId: null },
@@ -166,6 +171,7 @@ const state = {
   ],
 };
 let drawerCloseTimerId = null;
+let treeSearchDebounceTimerId = null;
 const childPreviewByNodeId = {
   'feo-b': {
     label: 'Штаб ФЭО-Б',
@@ -225,6 +231,97 @@ const historyEventIcon = {
 function toast(message) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = message; document.body.append(t); setTimeout(() => t.remove(), 1500); }
 function breadcrumb(id) { const out = []; let cur = id; while (cur) { out.unshift(data.nodes[cur].name); cur = data.nodes[cur].parent; } return out.join(' / '); }
 function addHistoryEntry(entry) { state.historyEntries = [{ id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...entry }, ...state.historyEntries]; }
+function escapeHtml(text) { return String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
+function highlightMatch(text, query) {
+  if (!query) return escapeHtml(text);
+  const source = String(text);
+  const lower = source.toLowerCase();
+  const needle = query.toLowerCase();
+  const index = lower.indexOf(needle);
+  if (index < 0) return escapeHtml(source);
+  return `${escapeHtml(source.slice(0, index))}<mark>${escapeHtml(source.slice(index, index + needle.length))}</mark>${escapeHtml(source.slice(index + needle.length))}`;
+}
+function resolveNodeTypeLabel(nodeType) { return nodeType === 'chat' ? 'Чат' : 'Подразделение'; }
+function buildTreeSearchModel(query) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return { results: [], visibleNodeIds: null, autoExpandNodeIds: null, matchedNodeIds: null };
+
+  const results = [];
+  const matchedNodeIds = new Set();
+  const visibleNodeIds = new Set(['root']);
+  const autoExpandNodeIds = new Set(['root']);
+  const addNodePath = (nodeId) => {
+    let current = nodeId;
+    while (current) {
+      visibleNodeIds.add(current);
+      const parentId = data.nodes[current]?.parent || null;
+      if (parentId) autoExpandNodeIds.add(parentId);
+      current = parentId;
+    }
+  };
+  const nodeContext = (nodeId) => {
+    const parentId = data.nodes[nodeId]?.parent;
+    return parentId ? data.nodes[parentId]?.name || 'Оргструктура' : 'Корень структуры';
+  };
+
+  Object.values(data.nodes).forEach((node) => {
+    if (!node.name.toLowerCase().includes(normalizedQuery)) return;
+    matchedNodeIds.add(node.id);
+    addNodePath(node.id);
+    results.push({ id: `node:${node.id}`, kind: 'node', title: node.name, typeLabel: resolveNodeTypeLabel(node.type), context: nodeContext(node.id), nodeId: node.id });
+  });
+  data.people.forEach((person) => {
+    if (!person.name.toLowerCase().includes(normalizedQuery)) return;
+    addNodePath(person.dep);
+    results.push({ id: `employee:${person.id}`, kind: 'employee', title: person.name, typeLabel: 'Сотрудник', context: data.nodes[person.dep]?.name || 'Оргструктура', employeeId: person.id, nodeId: person.dep });
+  });
+  data.chats.forEach((chat) => {
+    if (!chat.name.toLowerCase().includes(normalizedQuery)) return;
+    const nodeId = chat.nodeId && data.nodes[chat.nodeId] ? chat.nodeId : chat.dep;
+    addNodePath(nodeId);
+    results.push({ id: `chat:${chat.id}`, kind: 'chat', title: chat.name, typeLabel: 'Чат', context: data.nodes[nodeId]?.name || 'Оргструктура', chatId: chat.id, nodeId });
+  });
+  data.positions.forEach((position) => {
+    if (!position.title.toLowerCase().includes(normalizedQuery)) return;
+    addNodePath(position.dep);
+    results.push({ id: `position:${position.id}`, kind: 'position', title: position.title, typeLabel: 'Должность', context: data.nodes[position.dep]?.name || 'Оргструктура', positionId: position.id, nodeId: position.dep });
+  });
+
+  return { results: results.slice(0, 30), visibleNodeIds, autoExpandNodeIds, matchedNodeIds };
+}
+function updateTreeSearch(nextValue) {
+  state.treeSearchInput = nextValue;
+  if (treeSearchDebounceTimerId !== null) window.clearTimeout(treeSearchDebounceTimerId);
+  treeSearchDebounceTimerId = window.setTimeout(() => {
+    state.treeSearchQuery = state.treeSearchInput.trim();
+    const model = buildTreeSearchModel(state.treeSearchQuery);
+    state.treeSearchResults = model.results;
+    state.treeSearchDropdownOpen = state.treeSearchQuery.length > 0 && model.results.length > 0;
+    state.treeSearchActiveIndex = 0;
+    renderForTreeInteraction();
+  }, 150);
+}
+function applyTreeSearchResult(result) {
+  if (!result) return;
+  state.treeSearchDropdownOpen = false;
+  focusNodeInTree(result.nodeId);
+  if (result.kind === 'node') {
+    state.sel = { kind: 'node', id: result.nodeId };
+  }
+  if (result.kind === 'employee') {
+    state.tab = 'people';
+    state.sel = { kind: 'employee', id: result.employeeId };
+  }
+  if (result.kind === 'chat') {
+    state.tab = 'chats';
+    state.sel = { kind: 'chat', id: result.chatId };
+  }
+  if (result.kind === 'position') {
+    state.tab = 'positions';
+    state.sel = { kind: 'position', id: result.positionId };
+  }
+  render();
+}
 
 function focusNodeInTree(targetNodeId) {
   if (!data.nodes[targetNodeId]) return;
@@ -358,27 +455,31 @@ function reorderWithinLevel(parentId, draggedNodeId, targetNodeId) {
   return true;
 }
 
-function renderTree(nodeId, parentId = null, level = 0) {
+function renderTree(nodeId, parentId = null, level = 0, searchModel = buildTreeSearchModel(state.treeSearchQuery)) {
   const node = data.nodes[nodeId];
+  const isFilterMode = Boolean(state.treeSearchQuery.trim());
+  const isVisible = !isFilterMode || searchModel.visibleNodeIds.has(nodeId);
   const hasChildren = getChildren(nodeId).length > 0;
-  const expanded = !!state.exp[nodeId];
+  const expanded = isFilterMode ? !!state.exp[nodeId] || searchModel.autoExpandNodeIds.has(nodeId) : !!state.exp[nodeId];
   const selected = state.node === nodeId;
   const menuOpen = state.openTreeMenuNodeId === nodeId;
   const isDragging = state.drag.draggedNodeId === nodeId;
   const isDropTarget = state.drag.overNodeId === nodeId;
   const isFlashTarget = state.flashNodeId === nodeId;
+  const isDirectMatch = isFilterMode && searchModel.matchedNodeIds.has(nodeId);
+  const renderedName = isDirectMatch ? highlightMatch(node.name, state.treeSearchQuery) : escapeHtml(node.name);
 
-  const childrenHtml = hasChildren && expanded ? getChildren(nodeId).map((id) => renderTree(id, nodeId, level + 1)).join('') : '';
+  const childrenHtml = hasChildren && expanded ? getChildren(nodeId).map((id) => renderTree(id, nodeId, level + 1, searchModel)).join('') : '';
   const menu = menuOpen ? `<div class='tree-menu'>${(treeMenuByType[node.type] || treeMenuByType.department).map((action) => `<button data-tree-action='${action}' data-node='${nodeId}'>${action}</button>`).join('')}</div>` : '';
 
   return `
-    <div class='tree-item-wrap'>
+    <div class='tree-item-wrap ${isFilterMode ? 'is-filtered' : ''} ${isVisible ? '' : 'filtered-out'}'>
       <div class='tree-node ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''} ${isFlashTarget ? 'focus-flash' : ''}' style='padding-left:${12 + level * 16}px' data-drop-node='${nodeId}' data-drop-parent='${parentId || ''}'>
         <button class='tree-drag-handle' data-drag-handle='${nodeId}' data-parent='${parentId || ''}' draggable='${parentId && state.structureSettings.dragAndDropEnabled ? 'true' : 'false'}'>⋮⋮</button>
         <button class='tree-control' data-chevron='${nodeId}'>${hasChildren ? (expanded ? '▾' : '▸') : '·'}</button>
         <button class='tree-main-hit ${selected ? 'selected' : ''}' data-select-node='${nodeId}'>
           <span>${node.icon}</span>
-          <span><div>${node.name}</div><div class='tree-type'>${node.typeLabel}</div></span>
+          <span><div>${renderedName}</div><div class='tree-type'>${node.typeLabel}</div></span>
         </button>
         <button class='tree-menu-btn' data-open-tree-menu='${nodeId}'>...</button>
       </div>
@@ -478,8 +579,18 @@ function historyDrawerContent() {
 }
 
 function render({ preserveTreeScroll = false } = {}) {
+  const searchModel = buildTreeSearchModel(state.treeSearchQuery);
+  const searchResults = state.treeSearchQuery.trim() ? searchModel.results : [];
+  state.treeSearchResults = searchResults;
+  if (state.treeSearchActiveIndex >= searchResults.length) {
+    state.treeSearchActiveIndex = Math.max(searchResults.length - 1, 0);
+  }
+  const dropdownVisible = state.treeSearchDropdownOpen && state.treeSearchQuery.trim().length > 0;
+  const searchDropdown = dropdownVisible
+    ? `<div class='tree-search-dropdown'>${searchResults.map((result, index) => `<button class='tree-search-item ${index === state.treeSearchActiveIndex ? 'active' : ''}' data-search-result-id='${result.id}'><div>${highlightMatch(result.title, state.treeSearchQuery)}</div><small>${result.typeLabel} · ${highlightMatch(result.context, state.treeSearchQuery)}</small></button>`).join('')}</div>`
+    : '';
   const previousTreeScrollTop = preserveTreeScroll ? app.querySelector('.panel.left')?.scrollTop ?? null : null;
-  app.innerHTML = `<div class='layout'><div class='panel left'><h3>Оргструктура</h3><input placeholder='Поиск в структуре'/><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root')}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
+  app.innerHTML = `<div class='layout'><div class='panel left ${state.treeSearchQuery.trim() ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/>${searchDropdown}</div><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Люди</button><button>Должности</button><button>Чаты</button><button>Вакансии</button></div>${renderTree('root', null, 0, searchModel)}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
   if (preserveTreeScroll && state.pendingRevealNodeId === null && previousTreeScrollTop !== null) {
     const currentTreePanel = app.querySelector('.panel.left');
@@ -493,6 +604,33 @@ function renderForTreeInteraction() {
 }
 
 function bindInteractions() {
+  const searchInput = app.querySelector('[data-tree-search-input]');
+  if (searchInput) {
+    searchInput.oninput = () => updateTreeSearch(searchInput.value || '');
+    searchInput.onkeydown = (event) => {
+      if (!state.treeSearchDropdownOpen || !state.treeSearchResults.length) return;
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        state.treeSearchActiveIndex = Math.min(state.treeSearchActiveIndex + 1, state.treeSearchResults.length - 1);
+        renderForTreeInteraction();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        state.treeSearchActiveIndex = Math.max(state.treeSearchActiveIndex - 1, 0);
+        renderForTreeInteraction();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        applyTreeSearchResult(state.treeSearchResults[state.treeSearchActiveIndex]);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        state.treeSearchDropdownOpen = false;
+        renderForTreeInteraction();
+      }
+    };
+  }
+  app.querySelectorAll('[data-search-result-id]').forEach((btn) => btn.onclick = () => {
+    const found = state.treeSearchResults.find((item) => item.id === btn.dataset.searchResultId);
+    applyTreeSearchResult(found);
+  });
   app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; renderForTreeInteraction(); });
   app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => {
     const id = btn.dataset.selectNode;
@@ -707,8 +845,13 @@ function bindInteractions() {
 }
 
 window.addEventListener('mousedown', (event) => {
+  const target = event.target;
+  if (state.treeSearchDropdownOpen && !target.closest('.tree-search-wrap')) {
+    state.treeSearchDropdownOpen = false;
+    renderForTreeInteraction();
+    return;
+  }
   if (state.openTreeMenuNodeId || state.isCenterMenuOpen) {
-    const target = event.target;
     if (!target.closest('.tree-item-wrap') && !target.closest('.menu-anchor')) {
       state.openTreeMenuNodeId = null;
       state.isCenterMenuOpen = false;
