@@ -321,7 +321,6 @@ function clearTreeSearch({ keepFocus = false } = {}) {
 }
 function applyTreeSearchResult(result) {
   if (!result) return;
-  state.treeSearchDropdownOpen = false;
   focusNodeInTree(result.nodeId);
   if (result.kind === 'node') {
     state.sel = { kind: 'node', id: result.nodeId };
@@ -338,7 +337,7 @@ function applyTreeSearchResult(result) {
     state.tab = 'positions';
     state.sel = { kind: 'position', id: result.positionId };
   }
-  render();
+  clearTreeSearch();
 }
 
 function focusNodeInTree(targetNodeId) {
