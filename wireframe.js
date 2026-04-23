@@ -581,7 +581,7 @@ function detailsContent() {
   const leaderTitle = node.id === 'feo' ? 'Руководитель штаба ФЭО' : 'Руководитель подразделения';
   const icon = node.type === 'chat' ? '💬' : node.type === 'company' ? '🏢' : '▦';
 
-  const firstChildId = node.children?.[0] || null;
+  const firstChildId = getChildren(node.id)?.[0] || null;
   const hierarchyNav = parentNode || firstChildId
     ? `<div class='row-actions hierarchy-nav'>${parentNode ? `<button data-nav-up='${parentNode.id}'>↑</button>` : ''}${firstChildId ? `<button data-nav-down='${firstChildId}'>↓</button>` : ''}</div>`
     : '';
