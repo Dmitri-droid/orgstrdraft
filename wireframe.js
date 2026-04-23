@@ -246,6 +246,8 @@ const state = {
   sidebarNestedContext: null,
   sidebarNavStack: [],
   rootTabMode: { people: 'summary', positions: 'summary', chats: 'summary', files: 'summary' },
+  positionsSearchQuery: '',
+  positionsStatusFilter: 'all',
   flashNodeId: null,
   pendingRevealNodeId: null,
   historyEntries: [
@@ -693,7 +695,7 @@ function centerContent() {
       content = `<div class='card'><h3>Вакантные позиции</h3>${vacant.map((position) => `<div>${position.title} · Вакантна</div>`).join('') || "<div class='muted'>Нет вакансий</div>"}</div><div class='card'><h3>Ключевые роли</h3>${occupied.map((position) => `<div>${position.title} · ${position.assignee}</div>`).join('')}</div><button data-root-show-all='positions'>Показать все должности</button>`;
     } else {
       const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='positions'>← К обзору</button></div>` : '';
-      content = `${back}<div class='row-actions'><input placeholder='Поиск должности'/><button>Все</button><button>Занятые</button><button>Вакантные</button></div>${list(positions, 'position', (x) => `<div class='grow'><b>${x.title}</b><div>${x.status} · ${x.assignee}</div></div><button>${x.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button>`)}`;
+      content = `${back}<div class='row-actions'><input data-positions-search value='${escapeHtml(state.positionsSearchQuery)}' placeholder='Поиск должности'/><button class='${state.positionsStatusFilter === 'all' ? 'active' : ''}' data-pos-filter='all'>Все</button><button class='${state.positionsStatusFilter === 'occupied' ? 'active' : ''}' data-pos-filter='occupied'>Занятые</button><button class='${state.positionsStatusFilter === 'vacant' ? 'active' : ''}' data-pos-filter='vacant'>Вакантные</button></div>${list(visiblePositions, 'position', (x) => `<div class='grow'><b>${x.title}</b><div>${x.status} · ${x.assignee}</div></div><button>${x.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button>`)}`;
     }
   }
   if (state.tab === 'chats') {
@@ -720,7 +722,7 @@ function centerContent() {
     ? `<div class='card'><p><b>Вся организация</b></p><p><b>Подразделения:</b> ${Object.values(data.nodes).filter((n) => n.type !== 'chat' && n.type !== 'system').length}</p><p><b>Сотрудники:</b> ${data.people.length}</p><p><b>Чаты:</b> ${data.chats.length}</p><p><b>Файлы:</b> ${data.files.length}</p></div>`
     : `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
-  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', isRootNode ? 'О компании' : 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
+  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', isRootNode ? 'О компании' : 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
 function detailsContent() {
@@ -735,7 +737,9 @@ function detailsContent() {
   if (s.kind === 'file') { const f = data.files.find((x) => x.id === s.id); if (!f) return ''; return `<div class='card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><h3>${f.name}</h3><p>${f.type}</p><div class='row-actions'><button data-open-file='${f.id}'>Открыть</button><button data-show-file='${f.id}'>Показать в структуре</button></div></div>`; }
   const parentNode = node.parent ? data.nodes[node.parent] : null;
   const primaryChat = data.chats.find((chat) => chat.id === node.primaryChatId) || data.chats.find((chat) => chat.dep === node.id);
-  const relatedChats = data.chats.filter((chat) => chat.dep === node.id && (!primaryChat || chat.id !== primaryChat.id));
+  const relatedChats = node.id === 'root'
+    ? data.chats.slice(0, 6)
+    : data.chats.filter((chat) => chat.dep === node.id && (!primaryChat || chat.id !== primaryChat.id));
   const relatedFiles = data.files.filter((file) => file.dep === node.id);
   const childIds = node.children.filter((childId) => childPreviewByNodeId[childId]);
   const childBlocks = childIds.map((childId) => {
@@ -760,7 +764,11 @@ function detailsContent() {
   const hierarchyNav = parentNode || firstChildId
     ? `<div class='row-actions hierarchy-nav'>${parentNode ? `<button data-nav-up='${parentNode.id}'>↑</button>` : ''}${firstChildId ? `<button data-nav-down='${firstChildId}'>↓</button>` : ''}</div>`
     : '';
-  return `<div class='card details-rich-card'>${hierarchyNav}<div class='details-head'><div class='details-head-main'><span class='details-node-icon'>${icon}</span><div><h3>${node.name}</h3><small>${node.typeLabel}</small></div></div></div><div class='details-section'><p>${node.id === 'feo' ? 'Финансово-экономическое обеспечение деятельности компании. Планирование, анализ, отчетность.' : node.desc}</p></div><div class='details-section'><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-show-in-structure='${node.id}'>Показать в структуре</button><button data-msg='${node.leader}'>Написать руководителю</button></div></div><div class='details-section'><h4>Руководитель</h4><div class='leader-card'><div class='avatar'>${node.leader.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${node.leader}</b><div class='muted'>${leaderTitle}</div><button class='link-btn' data-open-profile='${node.leader}'>Открыть профиль</button></div><div class='row-actions'><button data-msg='${node.leader}'>✉</button><button data-quick-leader='${node.leader}'>⋯</button></div></div></div>${parentNode ? `<div class='details-section'><h4>Подчиняется / входит в</h4><div class='subtle-box'><b>${parentNode.name}</b><button class='link-btn' data-show-in-structure='${parentNode.id}'>Показать в структуре</button></div></div>` : ''}<div class='details-section'><h4>Подчинённые подразделения (${childIds.length})</h4><div class='details-list-stack'>${childBlocks || "<div class='empty'>Нет дочерних подразделений.</div>"}</div></div><div class='details-section'><h4>Основной чат</h4><div class='subtle-box'><div><b>${primaryChat ? primaryChat.name : `Чат ${node.name}`}</b><span class='wire-badge'>основной</span></div><div class='muted'>${primaryChat ? primaryChat.participants : 38} участников</div><button data-primary-chat='${node.id}'>Открыть чат</button></div></div><div class='details-section'><h4>Связанные чаты</h4><div class='details-list-stack'>${relatedChatRows}<button class='link-btn' data-open-all-chats='${node.id}'>Смотреть все</button></div></div><div class='details-section'><h4>Файлы и документы</h4><div class='details-list-stack'><div class='subtle-box'><b>Бюджет и планирование</b><small>24 файла</small></div>${fileRows}<button data-open-file-section='${node.id}'>Открыть раздел</button></div></div><div class='details-section'><h4>Быстрые действия</h4><div class='details-list-stack'><button data-primary-chat='${node.id}'>Открыть основной чат</button><button data-open-people='${node.id}'>Перейти к сотрудникам</button><button data-history='${node.id}'>Показать историю изменений</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div></div>`;
+  const chatSectionTitle = node.id === 'root' ? 'Глобальный чат компании' : 'Основной чат';
+  const chatBadge = node.id === 'root' ? 'глобальный' : 'основной';
+  const chatName = node.id === 'root' ? 'Общий чат компании' : (primaryChat ? primaryChat.name : `Чат ${node.name}`);
+  const chatParticipants = node.id === 'root' ? Math.max(...data.chats.map((chat) => chat.participants), 0) : (primaryChat ? primaryChat.participants : 38);
+  return `<div class='card details-rich-card'>${hierarchyNav}<div class='details-head'><div class='details-head-main'><span class='details-node-icon'>${icon}</span><div><h3>${node.name}</h3><small>${node.typeLabel}</small></div></div></div><div class='details-section'><p>${node.id === 'feo' ? 'Финансово-экономическое обеспечение деятельности компании. Планирование, анализ, отчетность.' : node.desc}</p></div><div class='details-section'><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-show-in-structure='${node.id}'>Показать в структуре</button><button data-msg='${node.leader}'>Написать руководителю</button></div></div><div class='details-section'><h4>Руководитель</h4><div class='leader-card'><div class='avatar'>${node.leader.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${node.leader}</b><div class='muted'>${leaderTitle}</div><button class='link-btn' data-open-profile='${node.leader}'>Открыть профиль</button></div><div class='row-actions'><button data-msg='${node.leader}'>✉</button><button data-quick-leader='${node.leader}'>⋯</button></div></div></div>${parentNode ? `<div class='details-section'><h4>Подчиняется / входит в</h4><div class='subtle-box'><b>${parentNode.name}</b><button class='link-btn' data-show-in-structure='${parentNode.id}'>Показать в структуре</button></div></div>` : ''}<div class='details-section'><h4>Подчинённые подразделения (${childIds.length})</h4><div class='details-list-stack'>${childBlocks || "<div class='empty'>Нет дочерних подразделений.</div>"}</div></div><div class='details-section'><h4>${chatSectionTitle}</h4><div class='subtle-box'><div><b>${chatName}</b><span class='wire-badge'>${chatBadge}</span></div><div class='muted'>${chatParticipants} участников</div><button data-primary-chat='${node.id}'>Открыть чат</button></div></div><div class='details-section'><h4>Связанные чаты</h4><div class='details-list-stack'>${relatedChatRows}<button class='link-btn' data-open-all-chats='${node.id}'>Смотреть все</button></div></div><div class='details-section'><h4>Файлы и документы</h4><div class='details-list-stack'><div class='subtle-box'><b>Бюджет и планирование</b><small>24 файла</small></div>${fileRows}<button data-open-file-section='${node.id}'>Открыть раздел</button></div></div><div class='details-section'><h4>Быстрые действия</h4><div class='details-list-stack'><button data-primary-chat='${node.id}'>Открыть основной чат</button><button data-open-people='${node.id}'>Перейти к сотрудникам</button><button data-history='${node.id}'>Показать историю изменений</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div></div>`;
 }
 
 function modalContent() {
@@ -930,6 +938,9 @@ function bindInteractions() {
   app.querySelectorAll('[data-open-center-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); state.isCenterMenuOpen = !state.isCenterMenuOpen; state.openTreeMenuNodeId = null; render(); });
   app.querySelectorAll('[data-center-action]').forEach((btn) => btn.onclick = () => { const action = btn.dataset.centerAction; state.isCenterMenuOpen = false; if (action === 'Открыть чат') return openPrimaryChat(state.node); toast(`${action}: ${data.nodes[state.node].name}`); render(); });
   app.querySelectorAll('[data-tab]').forEach((btn) => btn.onclick = () => { state.tab = btn.dataset.tab; state.sel = { kind: 'node', id: state.node }; render(); });
+  const positionsSearchInput = app.querySelector('[data-positions-search]');
+  if (positionsSearchInput) positionsSearchInput.oninput = () => { state.positionsSearchQuery = positionsSearchInput.value || ''; render(); };
+  app.querySelectorAll('[data-pos-filter]').forEach((btn) => btn.onclick = () => { state.positionsStatusFilter = btn.dataset.posFilter; render(); });
   app.querySelectorAll('[data-root-show-all]').forEach((btn) => btn.onclick = () => {
     state.rootTabMode[btn.dataset.rootShowAll] = 'full';
     render();
@@ -1110,3 +1121,10 @@ window.addEventListener('keydown', (event) => {
 });
 
 render();
+  const visiblePositions = positions
+    .filter((position) => {
+      if (state.positionsStatusFilter === 'occupied') return position.status !== 'Вакантна';
+      if (state.positionsStatusFilter === 'vacant') return position.status === 'Вакантна';
+      return true;
+    })
+    .filter((position) => position.title.toLowerCase().includes(state.positionsSearchQuery.trim().toLowerCase()));
