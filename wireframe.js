@@ -104,6 +104,95 @@ function extendMockTreeData() {
 
 extendMockTreeData();
 
+function ensureRichDemoData() {
+  const candidateNodeIds = Object.values(data.nodes)
+    .filter((node) => node.type !== 'chat' && node.type !== 'system')
+    .map((node) => node.id);
+
+  const statuses = ['online', 'away', 'offline'];
+  const rolePool = ['Аналитик', 'Координатор', 'Специалист', 'Менеджер', 'Контролёр', 'Эксперт', 'Руководитель направления'];
+  const positionPool = ['Аналитик', 'Финансовый контролёр', 'Координатор', 'Руководитель отдела', 'Методолог', 'Операционный менеджер'];
+  const chatPool = ['Общий чат', 'Планёрка', 'Руководители', 'Оперативка', 'Согласования'];
+  const filePool = ['Регламент', 'План работ', 'KPI отчёт', 'Шаблон', 'Roadmap', 'Сводка'];
+  const firstNames = ['Иван', 'Марина', 'Елена', 'Дмитрий', 'Ольга', 'Артем', 'Полина', 'Анна', 'Роман', 'Тимур', 'Алина', 'Илья'];
+  const lastNames = ['Демьянов', 'Петрова', 'Смирнова', 'Беляев', 'Миронова', 'Волков', 'Ершова', 'Громова', 'Кузнецов', 'Азаров', 'Сергеева', 'Медведев'];
+
+  let personSeq = data.people.length + 1;
+  let positionSeq = data.positions.length + 1;
+  let chatSeq = data.chats.length + 1;
+  let fileSeq = data.files.length + 1;
+  const nextName = () => `${firstNames[personSeq % firstNames.length]} ${lastNames[personSeq % lastNames.length]}`;
+
+  candidateNodeIds.forEach((nodeId, index) => {
+    const node = data.nodes[nodeId];
+    const peopleInNode = data.people.filter((item) => item.dep === nodeId);
+    while (peopleInNode.length < 3) {
+      const name = nextName();
+      peopleInNode.push({ id: `e${personSeq}`, name, pos: rolePool[(personSeq + index) % rolePool.length], sub: node.name, status: statuses[personSeq % statuses.length], dep: nodeId });
+      personSeq += 1;
+    }
+    peopleInNode.forEach((person) => {
+      if (!data.people.find((item) => item.id === person.id)) data.people.push(person);
+    });
+
+    const positionsInNode = data.positions.filter((item) => item.dep === nodeId);
+    while (positionsInNode.length < 3) {
+      const occupied = positionsInNode.length % 2 === 0;
+      positionsInNode.push({
+        id: `p${positionSeq}`,
+        title: positionPool[(positionSeq + index) % positionPool.length],
+        status: occupied ? 'Занята' : 'Вакантна',
+        assignee: occupied ? (peopleInNode[positionsInNode.length % peopleInNode.length]?.name || '—') : '—',
+        dep: nodeId,
+      });
+      positionSeq += 1;
+    }
+    if (!positionsInNode.some((item) => item.status === 'Вакантна')) {
+      positionsInNode.push({ id: `p${positionSeq}`, title: 'Вакантная должность', status: 'Вакантна', assignee: '—', dep: nodeId });
+      positionSeq += 1;
+    }
+    positionsInNode.forEach((position) => {
+      if (!data.positions.find((item) => item.id === position.id)) data.positions.push(position);
+    });
+
+    const chatsInNode = data.chats.filter((item) => item.dep === nodeId || item.nodeId === nodeId);
+    while (chatsInNode.length < 3) {
+      const isMain = chatsInNode.length === 0;
+      chatsInNode.push({
+        id: `c${chatSeq}`,
+        name: `${chatPool[(chatSeq + index) % chatPool.length]} ${node.name}`,
+        type: isMain ? 'Основной' : 'Рабочий',
+        participants: 5 + ((chatSeq + index) % 20),
+        last: 'Обновление статуса',
+        dep: nodeId,
+        nodeId: null,
+      });
+      chatSeq += 1;
+    }
+    chatsInNode.forEach((chat) => {
+      if (!data.chats.find((item) => item.id === chat.id)) data.chats.push(chat);
+    });
+
+    const filesInNode = data.files.filter((item) => item.dep === nodeId);
+    const fileTypes = ['PDF', 'XLSX', 'DOCX'];
+    while (filesInNode.length < 3) {
+      filesInNode.push({
+        id: `f${fileSeq}`,
+        name: `${filePool[(fileSeq + index) % filePool.length]} ${node.name}.${fileTypes[fileSeq % fileTypes.length].toLowerCase()}`,
+        type: fileTypes[fileSeq % fileTypes.length],
+        owner: peopleInNode[fileSeq % peopleInNode.length]?.name || node.leader,
+        dep: nodeId,
+      });
+      fileSeq += 1;
+    }
+    filesInNode.forEach((file) => {
+      if (!data.files.find((item) => item.id === file.id)) data.files.push(file);
+    });
+  });
+}
+
+ensureRichDemoData();
+
 const treeMenuByType = {
   company: ['Открыть', 'Добавить подразделение', 'Импорт структуры', 'Настроить структуру'],
   department: ['Открыть', 'Переименовать', 'Добавить дочернее подразделение', 'Добавить сотрудника', 'Создать чат подразделения', 'Архивировать'],
@@ -155,6 +244,7 @@ const state = {
   },
   detailsExpandedChildIds: {},
   sidebarNestedContext: null,
+  sidebarNavStack: [],
   flashNodeId: null,
   pendingRevealNodeId: null,
   historyEntries: [
@@ -355,6 +445,7 @@ function focusNodeInTree(targetNodeId) {
 function navigateToNode(nodeId, { reveal = false } = {}) {
   if (!data.nodes[nodeId]) return;
   state.sidebarNestedContext = null;
+  state.sidebarNavStack = [];
   if (reveal) {
     focusNodeInTree(nodeId);
   } else {
@@ -364,9 +455,40 @@ function navigateToNode(nodeId, { reveal = false } = {}) {
   }
   state.tab = data.nodes[nodeId].type === 'chat' ? 'chats' : 'people';
 }
+function pushSidebarContext() {
+  state.sidebarNavStack.push({
+    sel: { ...state.sel },
+    node: state.node,
+    tab: state.tab,
+    nested: state.sidebarNestedContext ? { ...state.sidebarNestedContext } : null,
+  });
+}
+function openSidebarSelection(selection) {
+  pushSidebarContext();
+  state.sidebarNestedContext = null;
+  state.sel = { ...selection };
+}
+function openSidebarProfile(profileName) {
+  const employee = data.people.find((item) => item.name === profileName);
+  pushSidebarContext();
+  state.sidebarNestedContext = {
+    type: 'profile',
+    name: profileName,
+    subtitle: employee ? employee.pos : 'Профиль сотрудника',
+  };
+}
+function sidebarBack() {
+  const previous = state.sidebarNavStack.pop();
+  if (!previous) return;
+  state.node = previous.node;
+  state.tab = previous.tab;
+  state.sel = { ...previous.sel };
+  state.sidebarNestedContext = previous.nested ? { ...previous.nested } : null;
+}
 
 function showInStructure(target) {
   state.sidebarNestedContext = null;
+  state.sidebarNavStack = [];
   let targetNodeId = state.node;
   if (target.kind === 'node') {
     targetNodeId = target.nodeId;
@@ -532,18 +654,20 @@ function centerContent() {
   const breadcrumbs = breadcrumbNodeIds(state.node)
     .map((nodeId, index, list) => `<button class='crumb-btn ${nodeId === state.node ? 'active' : ''}' data-breadcrumb-node='${nodeId}'>${data.nodes[nodeId].name}</button>${index < list.length - 1 ? "<span class='crumb-sep'>/</span>" : ''}`)
     .join('');
-  const people = (state.employeeOrderByDepartment[state.node] || [])
-    .map((id) => data.people.find((x) => x.id === id))
-    .filter(Boolean);
-  const positions = data.positions.filter((x) => x.dep === state.node);
-  const chats = data.chats.filter((x) => x.dep === state.node || x.nodeId === state.node);
-  const files = data.files.filter((x) => x.dep === state.node);
+  const people = state.node === 'root'
+    ? data.people
+    : (state.employeeOrderByDepartment[state.node] || []).map((id) => data.people.find((x) => x.id === id)).filter(Boolean);
+  const positions = state.node === 'root' ? data.positions : data.positions.filter((x) => x.dep === state.node);
+  const chats = state.node === 'root' ? data.chats : data.chats.filter((x) => x.dep === state.node || x.nodeId === state.node);
+  const files = state.node === 'root' ? data.files : data.files.filter((x) => x.dep === state.node);
   let content = '';
   if (state.tab === 'people') content = `<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>` + list(people, 'employee', (x) => `<button class='row-drag-handle' data-emp-drag='${x.id}' draggable='true'>⋮⋮</button><div class='row-main-hit' data-select-employee='${x.id}'><div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><span class='status'>${x.status}</span></div><button data-msg='${x.name}'>Написать</button>`);
   if (state.tab === 'positions') content = `<div class='row-actions'><input placeholder='Поиск должности'/><button>Все</button><button>Занятые</button><button>Вакантные</button></div>` + list(positions, 'position', (x) => `<div class='grow'><b>${x.title}</b><div>${x.status} · ${x.assignee}</div></div><button>${x.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button>`);
   if (state.tab === 'chats') content = list(chats, 'chat', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.participants} участников</div><small>${x.last}</small></div><button data-open-chat='${x.id}'>Открыть</button>`);
   if (state.tab === 'files') content = list(files, 'file', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.owner}</div></div><button data-open-file='${x.id}'>Открыть</button>`);
-  if (state.tab === 'about') content = `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
+  if (state.tab === 'about') content = state.node === 'root'
+    ? `<div class='card'><p><b>Вся организация</b></p><p><b>Подразделения:</b> ${Object.values(data.nodes).filter((n) => n.type !== 'chat' && n.type !== 'system').length}</p><p><b>Сотрудники:</b> ${data.people.length}</p><p><b>Чаты:</b> ${data.chats.length}</p><p><b>Файлы:</b> ${data.files.length}</p></div>`
+    : `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
   return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${node.summary}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
@@ -554,10 +678,10 @@ function detailsContent() {
     return `<div class='card details-rich-card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><div class='details-section'><h3>${profile.name}</h3><p>${profile.subtitle}</p><div class='row-actions'><button data-msg='${profile.name}'>Написать</button><button data-show-in-structure='${state.node}'>Показать в структуре</button></div></div></div>`;
   }
   const node = data.nodes[state.node]; const s = state.sel;
-  if (s.kind === 'employee') { const e = data.people.find((x) => x.id === s.id); if (!e) return ''; return `<div class='card'><h3>${e.name}</h3><p>${e.pos}</p><p>Статус: ${e.status}</p><div class='row-actions'><button data-msg='${e.name}'>Написать</button><button>Позвонить</button><button data-show-employee='${e.id}'>Показать в структуре</button></div></div>`; }
-  if (s.kind === 'position') { const p = data.positions.find((x) => x.id === s.id); if (!p) return ''; return `<div class='card'><h3>${p.title}</h3><p>${p.status}</p><p>${p.assignee}</p><div class='row-actions'><button>Назначить сотрудника</button><button data-show-position='${p.id}'>Показать в структуре</button></div></div>`; }
-  if (s.kind === 'chat') { const c = data.chats.find((x) => x.id === s.id); if (!c) return ''; return `<div class='card'><h3>${c.name}</h3><p>${c.type}</p><div class='row-actions'><button data-open-chat='${c.id}'>Открыть</button><button data-show-chat='${c.id}'>Показать в структуре</button></div></div>`; }
-  if (s.kind === 'file') { const f = data.files.find((x) => x.id === s.id); if (!f) return ''; return `<div class='card'><h3>${f.name}</h3><p>${f.type}</p><div class='row-actions'><button data-open-file='${f.id}'>Открыть</button><button data-show-file='${f.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'employee') { const e = data.people.find((x) => x.id === s.id); if (!e) return ''; return `<div class='card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><h3>${e.name}</h3><p>${e.pos}</p><p>Статус: ${e.status}</p><div class='row-actions'><button data-msg='${e.name}'>Написать</button><button>Позвонить</button><button data-show-employee='${e.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'position') { const p = data.positions.find((x) => x.id === s.id); if (!p) return ''; return `<div class='card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><h3>${p.title}</h3><p>${p.status}</p><p>${p.assignee}</p><div class='row-actions'><button>${p.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button><button data-show-position='${p.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'chat') { const c = data.chats.find((x) => x.id === s.id); if (!c) return ''; return `<div class='card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><h3>${c.name}</h3><p>${c.type}</p><div class='row-actions'><button data-open-chat='${c.id}'>Открыть</button><button data-show-chat='${c.id}'>Показать в структуре</button></div></div>`; }
+  if (s.kind === 'file') { const f = data.files.find((x) => x.id === s.id); if (!f) return ''; return `<div class='card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><h3>${f.name}</h3><p>${f.type}</p><div class='row-actions'><button data-open-file='${f.id}'>Открыть</button><button data-show-file='${f.id}'>Показать в структуре</button></div></div>`; }
   const parentNode = node.parent ? data.nodes[node.parent] : null;
   const primaryChat = data.chats.find((chat) => chat.id === node.primaryChatId) || data.chats.find((chat) => chat.dep === node.id);
   const relatedChats = data.chats.filter((chat) => chat.dep === node.id && (!primaryChat || chat.id !== primaryChat.id));
@@ -755,8 +879,8 @@ function bindInteractions() {
   app.querySelectorAll('[data-open-center-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); state.isCenterMenuOpen = !state.isCenterMenuOpen; state.openTreeMenuNodeId = null; render(); });
   app.querySelectorAll('[data-center-action]').forEach((btn) => btn.onclick = () => { const action = btn.dataset.centerAction; state.isCenterMenuOpen = false; if (action === 'Открыть чат') return openPrimaryChat(state.node); toast(`${action}: ${data.nodes[state.node].name}`); render(); });
   app.querySelectorAll('[data-tab]').forEach((btn) => btn.onclick = () => { state.tab = btn.dataset.tab; state.sel = { kind: 'node', id: state.node }; render(); });
-  app.querySelectorAll('.list-row').forEach((row) => row.onclick = () => { state.sidebarNestedContext = null; state.sel = { kind: row.dataset.k, id: row.dataset.id }; render(); });
-  app.querySelectorAll('[data-select-employee]').forEach((body) => body.onclick = (e) => { e.stopPropagation(); state.sidebarNestedContext = null; state.sel = { kind: 'employee', id: body.dataset.selectEmployee }; render(); });
+  app.querySelectorAll('.list-row').forEach((row) => row.onclick = () => { openSidebarSelection({ kind: row.dataset.k, id: row.dataset.id }); render(); });
+  app.querySelectorAll('[data-select-employee]').forEach((body) => body.onclick = (e) => { e.stopPropagation(); openSidebarSelection({ kind: 'employee', id: body.dataset.selectEmployee }); render(); });
 
   app.querySelectorAll('[data-emp-drag]').forEach((handle) => {
     handle.ondragstart = (e) => {
@@ -815,24 +939,8 @@ function bindInteractions() {
   app.querySelectorAll('[data-show-position]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'position', positionId: btn.dataset.showPosition }));
   app.querySelectorAll('[data-show-chat]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'chat', chatId: btn.dataset.showChat }));
   app.querySelectorAll('[data-show-file]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'file', fileId: btn.dataset.showFile }));
-  app.querySelectorAll('[data-open-profile]').forEach((btn) => btn.onclick = () => {
-    const profileName = btn.dataset.openProfile;
-    const employee = data.people.find((item) => item.name === profileName);
-    state.sidebarNestedContext = {
-      type: 'profile',
-      name: profileName,
-      subtitle: employee ? employee.pos : 'Профиль сотрудника',
-      returnSelection: { ...state.sel },
-    };
-    render();
-  });
-  app.querySelectorAll('[data-sidebar-back]').forEach((btn) => btn.onclick = () => {
-    const context = state.sidebarNestedContext;
-    if (!context?.returnSelection) return;
-    state.sel = { ...context.returnSelection };
-    state.sidebarNestedContext = null;
-    render();
-  });
+  app.querySelectorAll('[data-open-profile]').forEach((btn) => btn.onclick = () => { openSidebarProfile(btn.dataset.openProfile); render(); });
+  app.querySelectorAll('[data-sidebar-back]').forEach((btn) => btn.onclick = () => { sidebarBack(); render(); });
   app.querySelectorAll('[data-quick-leader]').forEach((btn) => btn.onclick = () => toast(`Быстрые действия: ${btn.dataset.quickLeader}`));
   app.querySelectorAll('[data-open-all-chats]').forEach((btn) => btn.onclick = () => toast(`Смотреть все чаты: ${btn.dataset.openAllChats}`));
   app.querySelectorAll('[data-open-file-section]').forEach((btn) => btn.onclick = () => toast(`Открыть раздел файлов: ${btn.dataset.openFileSection}`));
