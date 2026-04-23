@@ -245,6 +245,7 @@ const state = {
   detailsExpandedChildIds: {},
   sidebarNestedContext: null,
   sidebarNavStack: [],
+  rootTabMode: { people: 'summary', positions: 'summary', chats: 'summary', files: 'summary' },
   flashNodeId: null,
   pendingRevealNodeId: null,
   historyEntries: [
@@ -648,9 +649,23 @@ function resetStructureOrder() {
 }
 
 function list(items, kind, template) { if (!items.length) return `<div class='empty'>Пусто для выбранного узла.</div>`; return items.map((item) => `<div class='list-row ${state.sel.kind === kind && state.sel.id === item.id ? 'selected' : ''}' data-k='${kind}' data-id='${item.id}'>${template(item)}</div>`).join(''); }
+function rootSummaryMetrics() {
+  return {
+    employees: data.people.length,
+    departments: Object.values(data.nodes).filter((node) => node.type !== 'chat' && node.type !== 'system').length,
+    chats: data.chats.length,
+    files: data.files.length,
+  };
+}
+function nodeSummaryLabel(nodeId) {
+  if (nodeId !== 'root') return data.nodes[nodeId].summary;
+  const metrics = rootSummaryMetrics();
+  return `${metrics.employees} сотрудников · ${metrics.departments} подразделений · ${metrics.chats} чатов · ${metrics.files} файлов`;
+}
 
 function centerContent() {
   const node = data.nodes[state.node];
+  const isRootNode = state.node === 'root';
   const breadcrumbs = breadcrumbNodeIds(state.node)
     .map((nodeId, index, list) => `<button class='crumb-btn ${nodeId === state.node ? 'active' : ''}' data-breadcrumb-node='${nodeId}'>${data.nodes[nodeId].name}</button>${index < list.length - 1 ? "<span class='crumb-sep'>/</span>" : ''}`)
     .join('');
@@ -661,15 +676,51 @@ function centerContent() {
   const chats = state.node === 'root' ? data.chats : data.chats.filter((x) => x.dep === state.node || x.nodeId === state.node);
   const files = state.node === 'root' ? data.files : data.files.filter((x) => x.dep === state.node);
   let content = '';
-  if (state.tab === 'people') content = `<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>` + list(people, 'employee', (x) => `<button class='row-drag-handle' data-emp-drag='${x.id}' draggable='true'>⋮⋮</button><div class='row-main-hit' data-select-employee='${x.id}'><div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><span class='status'>${x.status}</span></div><button data-msg='${x.name}'>Написать</button>`);
-  if (state.tab === 'positions') content = `<div class='row-actions'><input placeholder='Поиск должности'/><button>Все</button><button>Занятые</button><button>Вакантные</button></div>` + list(positions, 'position', (x) => `<div class='grow'><b>${x.title}</b><div>${x.status} · ${x.assignee}</div></div><button>${x.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button>`);
-  if (state.tab === 'chats') content = list(chats, 'chat', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.participants} участников</div><small>${x.last}</small></div><button data-open-chat='${x.id}'>Открыть</button>`);
-  if (state.tab === 'files') content = list(files, 'file', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.owner}</div></div><button data-open-file='${x.id}'>Открыть</button>`);
+  if (state.tab === 'people') {
+    if (isRootNode && state.rootTabMode.people !== 'full') {
+      const leaders = people.filter((person) => person.pos.toLowerCase().includes('руковод')).slice(0, 5);
+      const recent = people.slice(-5);
+      content = `<div class='card'><h3>Руководители</h3>${leaders.map((person) => `<div>${person.name} · ${person.pos}</div>`).join('') || "<div class='muted'>Нет данных</div>"}</div><div class='card'><h3>Недавно добавленные</h3>${recent.map((person) => `<div>${person.name} · ${person.sub}</div>`).join('')}</div><div class='card'><h3>Статусы</h3><div>Online: ${people.filter((p) => p.status === 'online').length}</div><div>Away: ${people.filter((p) => p.status === 'away').length}</div><div>Offline: ${people.filter((p) => p.status === 'offline').length}</div></div><button data-root-show-all='people'>Показать всех сотрудников</button>`;
+    } else {
+      const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='people'>← К обзору</button></div>` : '';
+      content = `${back}<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>${list(people, 'employee', (x) => `<button class='row-drag-handle' data-emp-drag='${x.id}' draggable='true'>⋮⋮</button><div class='row-main-hit' data-select-employee='${x.id}'><div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><span class='status'>${x.status}</span></div><button data-msg='${x.name}'>Написать</button>`)}`;
+    }
+  }
+  if (state.tab === 'positions') {
+    if (isRootNode && state.rootTabMode.positions !== 'full') {
+      const vacant = positions.filter((position) => position.status === 'Вакантна').slice(0, 5);
+      const occupied = positions.filter((position) => position.status !== 'Вакантна').slice(0, 5);
+      content = `<div class='card'><h3>Вакантные позиции</h3>${vacant.map((position) => `<div>${position.title} · Вакантна</div>`).join('') || "<div class='muted'>Нет вакансий</div>"}</div><div class='card'><h3>Ключевые роли</h3>${occupied.map((position) => `<div>${position.title} · ${position.assignee}</div>`).join('')}</div><button data-root-show-all='positions'>Показать все должности</button>`;
+    } else {
+      const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='positions'>← К обзору</button></div>` : '';
+      content = `${back}<div class='row-actions'><input placeholder='Поиск должности'/><button>Все</button><button>Занятые</button><button>Вакантные</button></div>${list(positions, 'position', (x) => `<div class='grow'><b>${x.title}</b><div>${x.status} · ${x.assignee}</div></div><button>${x.status === 'Вакантна' ? 'Назначить' : 'Открыть'}</button>`)}`;
+    }
+  }
+  if (state.tab === 'chats') {
+    if (isRootNode && state.rootTabMode.chats !== 'full') {
+      const mainChats = chats.filter((chat) => chat.type === 'Основной').slice(0, 4);
+      const recentChats = chats.slice(-4);
+      content = `<div class='card'><h3>Основные чаты</h3>${mainChats.map((chat) => `<div>${chat.name} · ${chat.participants} участников</div>`).join('') || "<div class='muted'>Нет данных</div>"}</div><div class='card'><h3>Ключевые / недавние</h3>${recentChats.map((chat) => `<div>${chat.name} · ${chat.last}</div>`).join('')}</div><button data-root-show-all='chats'>Показать все чаты</button>`;
+    } else {
+      const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='chats'>← К обзору</button></div>` : '';
+      content = `${back}${list(chats, 'chat', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.participants} участников</div><small>${x.last}</small></div><button data-open-chat='${x.id}'>Открыть</button>`)}`;
+    }
+  }
+  if (state.tab === 'files') {
+    if (isRootNode && state.rootTabMode.files !== 'full') {
+      const recentFiles = files.slice(-5);
+      const byType = ['PDF', 'XLSX', 'DOCX'].map((type) => `${type}: ${files.filter((file) => file.type === type).length}`).join(' · ');
+      content = `<div class='card'><h3>Основные разделы</h3><div>${byType}</div></div><div class='card'><h3>Последние файлы</h3>${recentFiles.map((file) => `<div>${file.name} · ${file.type}</div>`).join('')}</div><button data-root-show-all='files'>Показать все файлы</button>`;
+    } else {
+      const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='files'>← К обзору</button></div>` : '';
+      content = `${back}${list(files, 'file', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.owner}</div></div><button data-open-file='${x.id}'>Открыть</button>`)}`;
+    }
+  }
   if (state.tab === 'about') content = state.node === 'root'
     ? `<div class='card'><p><b>Вся организация</b></p><p><b>Подразделения:</b> ${Object.values(data.nodes).filter((n) => n.type !== 'chat' && n.type !== 'system').length}</p><p><b>Сотрудники:</b> ${data.people.length}</p><p><b>Чаты:</b> ${data.chats.length}</p><p><b>Файлы:</b> ${data.files.length}</p></div>`
     : `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
-  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${node.summary}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
+  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', isRootNode ? 'О компании' : 'О подразделении']].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
 function detailsContent() {
@@ -879,6 +930,14 @@ function bindInteractions() {
   app.querySelectorAll('[data-open-center-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); state.isCenterMenuOpen = !state.isCenterMenuOpen; state.openTreeMenuNodeId = null; render(); });
   app.querySelectorAll('[data-center-action]').forEach((btn) => btn.onclick = () => { const action = btn.dataset.centerAction; state.isCenterMenuOpen = false; if (action === 'Открыть чат') return openPrimaryChat(state.node); toast(`${action}: ${data.nodes[state.node].name}`); render(); });
   app.querySelectorAll('[data-tab]').forEach((btn) => btn.onclick = () => { state.tab = btn.dataset.tab; state.sel = { kind: 'node', id: state.node }; render(); });
+  app.querySelectorAll('[data-root-show-all]').forEach((btn) => btn.onclick = () => {
+    state.rootTabMode[btn.dataset.rootShowAll] = 'full';
+    render();
+  });
+  app.querySelectorAll('[data-root-summary-back]').forEach((btn) => btn.onclick = () => {
+    state.rootTabMode[btn.dataset.rootSummaryBack] = 'summary';
+    render();
+  });
   app.querySelectorAll('.list-row').forEach((row) => row.onclick = () => { openSidebarSelection({ kind: row.dataset.k, id: row.dataset.id }); render(); });
   app.querySelectorAll('[data-select-employee]').forEach((body) => body.onclick = (e) => { e.stopPropagation(); openSidebarSelection({ kind: 'employee', id: body.dataset.selectEmployee }); render(); });
 
