@@ -674,6 +674,11 @@ function aboutTabLabel(node) {
   if (node.type === 'chat') return 'О чате';
   return 'О подразделении';
 }
+function hasHeaderChatAction(node) {
+  if (node.id === 'root') return false;
+  if (node.type === 'chat') return Boolean(data.chats.find((chat) => chat.nodeId === node.id || chat.id === node.primaryChatId || chat.dep === node.id));
+  return Boolean(node.primaryChatId || data.chats.find((chat) => chat.dep === node.id || chat.nodeId === node.id));
+}
 
 function centerContent() {
   const node = data.nodes[state.node];
@@ -694,6 +699,7 @@ function centerContent() {
     .filter((position) => position.title.toLowerCase().includes(state.positionsSearchQuery.trim().toLowerCase()));
   const chats = state.node === 'root' ? data.chats : data.chats.filter((x) => x.dep === state.node || x.nodeId === state.node);
   const files = state.node === 'root' ? data.files : data.files.filter((x) => x.dep === state.node);
+  const openChatButton = hasHeaderChatAction(node) ? `<button data-primary-chat='${state.node}'>Открыть чат</button>` : '';
   let content = '';
   if (state.tab === 'people') {
     if (isRootNode && state.rootTabMode.people !== 'full') {
@@ -739,7 +745,7 @@ function centerContent() {
     ? `<div class='card'><p><b>Вся организация</b></p><p><b>Подразделения:</b> ${Object.values(data.nodes).filter((n) => n.type !== 'chat' && n.type !== 'system').length}</p><p><b>Сотрудники:</b> ${data.people.length}</p><p><b>Чаты:</b> ${data.chats.length}</p><p><b>Файлы:</b> ${data.files.length}</p></div>`
     : `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
-  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'><button data-primary-chat='${state.node}'>Открыть чат</button><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', aboutTabLabel(node)]].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
+  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'>${openChatButton}<button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', aboutTabLabel(node)]].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
 function detailsContent() {
