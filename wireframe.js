@@ -840,7 +840,7 @@ function centerContent() {
 function detailsContent() {
   if (state.sidebarNestedContext?.type === 'profile') {
     const profile = state.sidebarNestedContext;
-    return `<div class='card details-rich-card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><div class='details-section'><h3>${profile.name}</h3><p>${profile.subtitle}</p><div class='row-actions'><button data-msg='${profile.name}'>Написать</button><button data-show-in-structure='${state.node}'>Показать в структуре</button></div></div></div>`;
+    return `<div class='card details-rich-card'><div class='row-actions'><div class='grow'></div><button data-close-profile-sidebar='1'>×</button></div><div class='details-section'><h3>${profile.name}</h3><p>${profile.subtitle}</p><div class='row-actions'><button data-msg='${profile.name}'>Написать</button><button data-show-in-structure='${state.node}'>Показать в структуре</button></div></div></div>`;
   }
   const node = data.nodes[state.node]; const s = state.sel;
   if (s.kind === 'employee') { const e = data.people.find((x) => x.id === s.id); if (!e) return ''; return `<div class='card'><div class='row-actions'><button data-sidebar-back='1'>← назад</button></div><h3>${e.name}</h3><p>${e.pos}</p><p>Статус: ${e.status}</p><div class='row-actions'><button data-msg='${e.name}'>Написать</button><button>Позвонить</button><button data-show-employee='${e.id}'>Показать в структуре</button></div></div>`; }
@@ -1150,6 +1150,12 @@ function bindInteractions() {
   app.querySelectorAll('[data-show-chat]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'chat', chatId: btn.dataset.showChat }));
   app.querySelectorAll('[data-show-file]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'file', fileId: btn.dataset.showFile }));
   app.querySelectorAll('[data-open-profile]').forEach((btn) => btn.onclick = () => { openSidebarProfile(btn.dataset.openProfile); render(); });
+  app.querySelectorAll('[data-close-profile-sidebar]').forEach((btn) => btn.onclick = () => {
+    state.sidebarNestedContext = null;
+    state.sidebarNavStack = [];
+    state.sel = { kind: 'node', id: state.node };
+    render();
+  });
   app.querySelectorAll('[data-sidebar-back]').forEach((btn) => btn.onclick = () => { sidebarBack(); render(); });
   app.querySelectorAll('[data-quick-leader]').forEach((btn) => btn.onclick = () => toast(`Быстрые действия: ${btn.dataset.quickLeader}`));
   app.querySelectorAll('[data-open-all-chats]').forEach((btn) => btn.onclick = () => toast(`Смотреть все чаты: ${btn.dataset.openAllChats}`));
