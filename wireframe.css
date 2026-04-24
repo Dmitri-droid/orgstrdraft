@@ -55,6 +55,7 @@ mark { background: #fff2a8; padding: 0 1px; }
 .list-row { display: flex; align-items: center; gap: 8px; border: 1px solid #d0d0d0; padding: 8px; margin-bottom: 8px; }
 .list-row:hover { background: #f8f8f8; }
 .list-row.selected { background: #ebebeb; border-color: #969696; }
+.list-row.focus-flash { outline: 2px solid #8d8d8d; background: #f1f1f1; transition: background 220ms ease; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #999; display: grid; place-items: center; background: #f1f1f1; }
 .card { border: 1px solid #d2d2d2; padding: 10px; background: #fbfbfb; }
 .empty { border: 1px dashed #bbb; padding: 12px; color: #666; background: #fbfbfb; }
