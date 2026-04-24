@@ -25,13 +25,11 @@ interface Props {
   onReorderEmployees: (draggedEmployeeId: string, targetEmployeeId: string) => void;
 }
 
-const tabs: { key: TabType; label: string }[] = [
-  { key: 'people', label: 'Люди' },
-  { key: 'positions', label: 'Должности' },
-  { key: 'chats', label: 'Чаты' },
-  { key: 'files', label: 'Файлы' },
-  { key: 'about', label: 'О подразделении' },
-];
+const aboutTabLabelByType: Partial<Record<OrgNode['type'], string>> = {
+  company: 'О компании',
+  group: 'О группе',
+  chat: 'О чате',
+};
 
 const centerMenuByType: Record<OrgNode['type'], string[]> = {
   company: ['Редактировать структуру', 'Настроить права доступа', 'Архивировать'],
@@ -44,6 +42,13 @@ const centerMenuByType: Record<OrgNode['type'], string[]> = {
 
 export function ContentPanel(props: Props) {
   const { node, breadcrumb, nodeTypeLabel, activeTab, onTabChange, onPrimaryChatOpen, onOpenAddModal, onOpenStructureSettings, onAction } = props;
+  const tabs: { key: TabType; label: string }[] = [
+    { key: 'people', label: 'Люди' },
+    { key: 'positions', label: 'Должности' },
+    { key: 'chats', label: 'Чаты' },
+    { key: 'files', label: 'Файлы' },
+    { key: 'about', label: aboutTabLabelByType[node.type] ?? 'О подразделении' },
+  ];
   const [isCenterActionsMenuOpen, setIsCenterActionsMenuOpen] = useState(false);
   const centerMenuRef = useRef<HTMLDivElement | null>(null);
 
