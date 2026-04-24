@@ -227,6 +227,7 @@ const state = {
   treeSearchResults: [],
   treeSearchDropdownOpen: false,
   treeSearchActiveIndex: 0,
+  activeTreeFilter: 'all',
   childOrderByParent: initialChildOrder,
   employeeOrderByDepartment: initialEmployeeOrderByDepartment,
   drag: { draggedNodeId: null, sourceParentId: null, overNodeId: null },
@@ -340,10 +341,36 @@ function highlightMatch(text, query) {
   return `${escapeHtml(source.slice(0, index))}<mark>${escapeHtml(source.slice(index, index + needle.length))}</mark>${escapeHtml(source.slice(index + needle.length))}`;
 }
 function resolveNodeTypeLabel(nodeType) { return nodeType === 'chat' ? 'Чат' : 'Подразделение'; }
-function buildTreeSearchModel(query) {
+function isOrgNode(node) { return ['company', 'department', 'team', 'group'].includes(node.type); }
+function buildTreeFilterModel(activeFilter) {
+  if (activeFilter === 'all') return { visibleNodeIds: null, hasRenderableNodes: true };
+  if (activeFilter === 'positions') return { visibleNodeIds: new Set(), hasRenderableNodes: false };
+
+  const matchedNodeIds = Object.values(data.nodes)
+    .filter((node) => (activeFilter === 'departments' ? isOrgNode(node) : node.type === 'chat'))
+    .map((node) => node.id);
+  const visibleNodeIds = new Set();
+  matchedNodeIds.forEach((nodeId) => {
+    let current = nodeId;
+    while (current) {
+      visibleNodeIds.add(current);
+      current = data.nodes[current]?.parent || null;
+    }
+  });
+  return { visibleNodeIds, hasRenderableNodes: matchedNodeIds.length > 0 };
+}
+function ensureNodeVisibleInTreeFilter(nodeId) {
+  const filterModel = buildTreeFilterModel(state.activeTreeFilter);
+  const isVisible = !filterModel.visibleNodeIds || filterModel.visibleNodeIds.has(nodeId);
+  if (isVisible) return;
+  state.activeTreeFilter = 'all';
+  toast('Фильтр переключен на «Все», чтобы показать выбранный узел');
+}
+function buildTreeSearchModel(query, activeFilter = state.activeTreeFilter) {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return { results: [], visibleNodeIds: null, autoExpandNodeIds: null, matchedNodeIds: null };
 
+  const filterModel = buildTreeFilterModel(activeFilter);
   const results = [];
   const matchedNodeIds = new Set();
   const visibleNodeIds = new Set(['root']);
@@ -363,27 +390,39 @@ function buildTreeSearchModel(query) {
   };
 
   Object.values(data.nodes).forEach((node) => {
+    const nodeAllowedByFilter = activeFilter === 'all'
+      || (activeFilter === 'departments' && isOrgNode(node))
+      || (activeFilter === 'chats' && node.type === 'chat');
+    if (!nodeAllowedByFilter) return;
+    if (filterModel.visibleNodeIds && !filterModel.visibleNodeIds.has(node.id)) return;
     if (!node.name.toLowerCase().includes(normalizedQuery)) return;
     matchedNodeIds.add(node.id);
     addNodePath(node.id);
     results.push({ id: `node:${node.id}`, kind: 'node', title: node.name, typeLabel: resolveNodeTypeLabel(node.type), context: nodeContext(node.id), nodeId: node.id });
   });
+  if (activeFilter === 'all') {
   data.people.forEach((person) => {
     if (!person.name.toLowerCase().includes(normalizedQuery)) return;
     addNodePath(person.dep);
     results.push({ id: `employee:${person.id}`, kind: 'employee', title: person.name, typeLabel: 'Сотрудник', context: data.nodes[person.dep]?.name || 'Оргструктура', employeeId: person.id, nodeId: person.dep });
   });
+  }
+  if (activeFilter === 'all' || activeFilter === 'chats') {
   data.chats.forEach((chat) => {
     if (!chat.name.toLowerCase().includes(normalizedQuery)) return;
     const nodeId = chat.nodeId && data.nodes[chat.nodeId] ? chat.nodeId : chat.dep;
+    if (filterModel.visibleNodeIds && !filterModel.visibleNodeIds.has(nodeId)) return;
     addNodePath(nodeId);
     results.push({ id: `chat:${chat.id}`, kind: 'chat', title: chat.name, typeLabel: 'Чат', context: data.nodes[nodeId]?.name || 'Оргструктура', chatId: chat.id, nodeId });
   });
+  }
+  if (activeFilter === 'all' || activeFilter === 'positions') {
   data.positions.forEach((position) => {
     if (!position.title.toLowerCase().includes(normalizedQuery)) return;
     addNodePath(position.dep);
     results.push({ id: `position:${position.id}`, kind: 'position', title: position.title, typeLabel: 'Должность', context: data.nodes[position.dep]?.name || 'Оргструктура', positionId: position.id, nodeId: position.dep });
   });
+  }
 
   return { results: results.slice(0, 30), visibleNodeIds, autoExpandNodeIds, matchedNodeIds };
 }
@@ -392,7 +431,7 @@ function updateTreeSearch(nextValue) {
   if (treeSearchDebounceTimerId !== null) window.clearTimeout(treeSearchDebounceTimerId);
   treeSearchDebounceTimerId = window.setTimeout(() => {
     state.treeSearchQuery = state.treeSearchInput.trim();
-    const model = buildTreeSearchModel(state.treeSearchQuery);
+    const model = buildTreeSearchModel(state.treeSearchQuery, state.activeTreeFilter);
     state.treeSearchResults = model.results;
     state.treeSearchDropdownOpen = state.treeSearchQuery.length > 0 && model.results.length > 0;
     state.treeSearchActiveIndex = 0;
@@ -530,6 +569,7 @@ function showInStructure(target) {
     state.sel = { kind: 'file', id: file.id };
   }
   if (!data.nodes[targetNodeId]) return;
+  ensureNodeVisibleInTreeFilter(targetNodeId);
   toast(`Показано в структуре: ${data.nodes[targetNodeId].name}`);
   focusNodeInTree(targetNodeId);
   render();
@@ -615,10 +655,12 @@ function reorderWithinLevel(parentId, draggedNodeId, targetNodeId) {
   return true;
 }
 
-function renderTree(nodeId, parentId = null, level = 0, searchModel = buildTreeSearchModel(state.treeSearchQuery)) {
+function renderTree(nodeId, parentId = null, level = 0, searchModel = buildTreeSearchModel(state.treeSearchQuery), filterModel = buildTreeFilterModel(state.activeTreeFilter)) {
   const node = data.nodes[nodeId];
   const isFilterMode = Boolean(state.treeSearchQuery.trim());
-  const isVisible = !isFilterMode || searchModel.visibleNodeIds.has(nodeId);
+  const isVisibleBySearch = !isFilterMode || searchModel.visibleNodeIds.has(nodeId);
+  const isVisibleByTreeFilter = !filterModel.visibleNodeIds || filterModel.visibleNodeIds.has(nodeId);
+  const isVisible = isVisibleBySearch && isVisibleByTreeFilter;
   const hasChildren = getChildren(nodeId).length > 0;
   const expanded = isFilterMode ? !!state.exp[nodeId] || searchModel.autoExpandNodeIds.has(nodeId) : !!state.exp[nodeId];
   const selected = state.node === nodeId;
@@ -626,10 +668,10 @@ function renderTree(nodeId, parentId = null, level = 0, searchModel = buildTreeS
   const isDragging = state.drag.draggedNodeId === nodeId;
   const isDropTarget = state.drag.overNodeId === nodeId;
   const isFlashTarget = state.flashNodeId === nodeId;
-  const isDirectMatch = isFilterMode && searchModel.matchedNodeIds.has(nodeId);
+  const isDirectMatch = isFilterMode && isVisibleByTreeFilter && searchModel.matchedNodeIds.has(nodeId);
   const renderedName = isDirectMatch ? highlightMatch(node.name, state.treeSearchQuery) : escapeHtml(node.name);
 
-  const childrenHtml = hasChildren && expanded ? getChildren(nodeId).map((id) => renderTree(id, nodeId, level + 1, searchModel)).join('') : '';
+  const childrenHtml = hasChildren && expanded ? getChildren(nodeId).map((id) => renderTree(id, nodeId, level + 1, searchModel, filterModel)).join('') : '';
   const menu = menuOpen ? `<div class='tree-menu'>${(treeMenuByType[node.type] || treeMenuByType.department).map((action) => `<button data-tree-action='${action}' data-node='${nodeId}'>${action}</button>`).join('')}</div>` : '';
 
   return `
@@ -833,7 +875,8 @@ function historyDrawerContent() {
 }
 
 function render({ preserveTreeScroll = false, allowPreserveWithPendingReveal = false } = {}) {
-  const searchModel = buildTreeSearchModel(state.treeSearchQuery);
+  const filterModel = buildTreeFilterModel(state.activeTreeFilter);
+  const searchModel = buildTreeSearchModel(state.treeSearchQuery, state.activeTreeFilter);
   const searchResults = state.treeSearchQuery.trim() ? searchModel.results : [];
   state.treeSearchResults = searchResults;
   if (state.treeSearchActiveIndex >= searchResults.length) {
@@ -844,8 +887,17 @@ function render({ preserveTreeScroll = false, allowPreserveWithPendingReveal = f
   const searchDropdown = dropdownVisible
     ? `<div class='tree-search-dropdown'>${searchResults.map((result, index) => `<button class='tree-search-item ${index === state.treeSearchActiveIndex ? 'active' : ''}' data-search-result-id='${result.id}'><div>${highlightMatch(result.title, state.treeSearchQuery)}</div><small>${result.typeLabel} · ${highlightMatch(result.context, state.treeSearchQuery)}</small></button>`).join('')}</div>`
     : '';
+  const treeFilterButtons = [
+    ['all', 'Все'],
+    ['departments', 'Подразделения'],
+    ['positions', 'Должности'],
+    ['chats', 'Чаты'],
+  ].map(([key, label]) => `<button class='${state.activeTreeFilter === key ? 'active' : ''}' data-tree-filter='${key}'>${label}</button>`).join('');
+  const treeContent = state.activeTreeFilter === 'positions' && !filterModel.hasRenderableNodes
+    ? `<div class='empty'>Должности отображаются во вкладке выбранного подразделения</div>`
+    : renderTree('root', null, 0, searchModel, filterModel);
   const previousTreeScrollTop = preserveTreeScroll ? app.querySelector('.panel.left')?.scrollTop ?? null : null;
-  app.innerHTML = `<div class='layout'><div class='panel left ${state.treeSearchQuery.trim() ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/><button class='tree-search-clear ${showSearchClear ? 'visible' : ''}' data-clear-tree-search='1' aria-label='Очистить поиск'>×</button>${searchDropdown}</div><div class='chips'><button class='active'>Все</button><button>Подразделения</button><button>Должности</button><button>Чаты</button></div>${renderTree('root', null, 0, searchModel)}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
+  app.innerHTML = `<div class='layout'><div class='panel left ${(state.treeSearchQuery.trim() || state.activeTreeFilter !== 'all') ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/><button class='tree-search-clear ${showSearchClear ? 'visible' : ''}' data-clear-tree-search='1' aria-label='Очистить поиск'>×</button>${searchDropdown}</div><div class='chips'>${treeFilterButtons}</div>${treeContent}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
   if (preserveTreeScroll && previousTreeScrollTop !== null && (allowPreserveWithPendingReveal || state.pendingRevealNodeId === null)) {
     const currentTreePanel = app.querySelector('.panel.left');
@@ -890,6 +942,11 @@ function bindInteractions() {
   app.querySelectorAll('[data-search-result-id]').forEach((btn) => btn.onclick = () => {
     const found = state.treeSearchResults.find((item) => item.id === btn.dataset.searchResultId);
     applyTreeSearchResult(found);
+  });
+  app.querySelectorAll('[data-tree-filter]').forEach((btn) => btn.onclick = () => {
+    state.activeTreeFilter = btn.dataset.treeFilter;
+    state.treeSearchDropdownOpen = state.treeSearchQuery.trim().length > 0;
+    renderForTreeInteraction();
   });
   app.querySelectorAll('[data-breadcrumb-node]').forEach((btn) => btn.onclick = () => {
     navigateToNode(btn.dataset.breadcrumbNode, { reveal: true });
