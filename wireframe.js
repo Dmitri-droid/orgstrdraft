@@ -675,6 +675,13 @@ function centerContent() {
     ? data.people
     : (state.employeeOrderByDepartment[state.node] || []).map((id) => data.people.find((x) => x.id === id)).filter(Boolean);
   const positions = state.node === 'root' ? data.positions : data.positions.filter((x) => x.dep === state.node);
+  const visiblePositions = positions
+    .filter((position) => {
+      if (state.positionsStatusFilter === 'occupied') return position.status !== 'Вакантна';
+      if (state.positionsStatusFilter === 'vacant') return position.status === 'Вакантна';
+      return true;
+    })
+    .filter((position) => position.title.toLowerCase().includes(state.positionsSearchQuery.trim().toLowerCase()));
   const chats = state.node === 'root' ? data.chats : data.chats.filter((x) => x.dep === state.node || x.nodeId === state.node);
   const files = state.node === 'root' ? data.files : data.files.filter((x) => x.dep === state.node);
   let content = '';
@@ -1127,10 +1134,3 @@ window.addEventListener('keydown', (event) => {
 });
 
 render();
-  const visiblePositions = positions
-    .filter((position) => {
-      if (state.positionsStatusFilter === 'occupied') return position.status !== 'Вакантна';
-      if (state.positionsStatusFilter === 'vacant') return position.status === 'Вакантна';
-      return true;
-    })
-    .filter((position) => position.title.toLowerCase().includes(state.positionsSearchQuery.trim().toLowerCase()));
