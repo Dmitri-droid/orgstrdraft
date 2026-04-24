@@ -654,7 +654,7 @@ function list(items, kind, template) { if (!items.length) return `<div class='em
 function rootSummaryMetrics() {
   return {
     employees: data.people.length,
-    departments: Object.values(data.nodes).filter((node) => node.type !== 'chat' && node.type !== 'system').length,
+    departments: Object.values(data.nodes).filter((node) => ['department', 'team', 'group'].includes(node.type)).length,
     chats: data.chats.length,
     files: data.files.length,
   };
@@ -748,7 +748,13 @@ function detailsContent() {
     const extraCount = Math.max(child.employees - child.employeeNames.length, 1);
     return `<div class='child-accordion'><button class='child-accordion-head' data-toggle-details-child='${childId}'><span class='details-node-icon'>${childId === 'plan3' ? '💬' : '▦'}</span><span class='grow'><b>${child.label}</b><div class='muted'>${child.employees} сотрудников</div></span><span class='chevron ${expanded ? 'open' : ''}'>▾</span></button>${expanded ? `<div class='child-accordion-body'><div><b>${child.primaryChatLabel}</b> · ${child.participants} участников</div><div><b>Связанные чаты</b> · ${child.linkedChats.join(' · ')}</div><div><b>Сотрудники</b> · ${child.employees}</div><div>${child.employeeNames.join(', ')} и ещё ${extraCount}</div><div><b>Файлы</b> · ${child.files}</div><div>например: ${child.fileExamples.join(', ')}</div><button class='link-btn' data-show-in-structure='${childId}'>Показать в структуре</button></div>` : ''}</div>`;
   }).join('');
-  const relatedChatRows = (relatedChats.length ? relatedChats : [
+  const relatedChatRows = (node.id === 'root'
+    ? [
+      { id: 'root-c1', name: 'Корпоративные объявления', participants: 120 },
+      { id: 'root-c2', name: 'Руководители компании', participants: 34 },
+      { id: 'root-c3', name: 'Операционный штаб', participants: 48 },
+    ]
+    : relatedChats.length ? relatedChats : [
     { id: 'rc1', name: 'Общий чат ФЭО', participants: 52 },
     { id: 'rc2', name: 'Руководители ФЭО', participants: 7 },
     { id: 'rc3', name: 'Планерка ФЭО', participants: 18 },
