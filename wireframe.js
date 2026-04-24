@@ -331,6 +331,16 @@ const childPreviewByNodeId = {
 
 const app = document.getElementById('app');
 const getChildren = (parentId) => state.childOrderByParent[parentId] || [];
+function flattenedTreeOrder() {
+  const ordered = [];
+  const walk = (nodeId) => {
+    if (!data.nodes[nodeId]) return;
+    ordered.push(nodeId);
+    getChildren(nodeId).forEach((childId) => walk(childId));
+  };
+  walk('root');
+  return ordered;
+}
 const historyFilterLabels = { all: 'Все', structure: 'Структура', people: 'Люди', chats: 'Чаты', settings: 'Настройки' };
 const historyTypeByFilter = {
   structure: ['created_department', 'renamed_department', 'reordered_nodes', 'archived_node'],
@@ -891,10 +901,11 @@ function detailsContent() {
   const leaderTitle = node.id === 'feo' ? 'Руководитель штаба ФЭО' : 'Руководитель подразделения';
   const icon = node.type === 'chat' ? '💬' : node.type === 'company' ? '🏢' : '▦';
 
-  const firstChildId = getChildren(node.id)?.[0] || null;
-  const hierarchyNav = parentNode || firstChildId
-    ? `<div class='row-actions hierarchy-nav'>${parentNode ? `<button data-nav-up='${parentNode.id}'>↑</button>` : ''}${firstChildId ? `<button data-nav-down='${firstChildId}'>↓</button>` : ''}</div>`
-    : '';
+  const orderedNodes = flattenedTreeOrder();
+  const currentIndex = orderedNodes.indexOf(node.id);
+  const previousNodeId = currentIndex > 0 ? orderedNodes[currentIndex - 1] : null;
+  const nextNodeId = currentIndex >= 0 && currentIndex < orderedNodes.length - 1 ? orderedNodes[currentIndex + 1] : null;
+  const hierarchyNav = `<div class='row-actions hierarchy-nav'><button data-nav-down='${nextNodeId || ''}' ${nextNodeId ? '' : 'disabled'}>↓</button><button data-nav-up='${previousNodeId || ''}' ${previousNodeId ? '' : 'disabled'}>↑</button></div>`;
   const chatSectionTitle = node.id === 'root' ? 'Глобальный чат компании' : 'Основной чат';
   const chatBadge = node.id === 'root' ? 'глобальный' : 'основной';
   const chatName = node.id === 'root' ? 'Общий чат компании' : (primaryChat ? primaryChat.name : `Чат ${node.name}`);
@@ -1151,12 +1162,14 @@ function bindInteractions() {
   });
   app.querySelectorAll('[data-msg]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); toast(`Написать: ${btn.dataset.msg}`); });
   app.querySelectorAll('[data-nav-up]').forEach((btn) => btn.onclick = () => {
+    if (btn.disabled || !btn.dataset.navUp) return;
     navigateToNode(btn.dataset.navUp, { reveal: true });
-    render();
+    renderForTreeInteraction();
   });
   app.querySelectorAll('[data-nav-down]').forEach((btn) => btn.onclick = () => {
+    if (btn.disabled || !btn.dataset.navDown) return;
     navigateToNode(btn.dataset.navDown, { reveal: true });
-    render();
+    renderForTreeInteraction();
   });
   app.querySelectorAll('[data-show-in-structure]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'node', nodeId: btn.dataset.showInStructure }));
   app.querySelectorAll('[data-show-employee]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'employee', employeeId: btn.dataset.showEmployee }));
