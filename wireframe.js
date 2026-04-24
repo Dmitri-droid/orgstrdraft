@@ -266,6 +266,10 @@ const state = {
 };
 let drawerCloseTimerId = null;
 let treeSearchDebounceTimerId = null;
+const VALID_TABS = ['people', 'positions', 'chats', 'files', 'about'];
+function setActiveTab(nextTab) {
+  state.tab = VALID_TABS.includes(nextTab) ? nextTab : 'people';
+}
 const childPreviewByNodeId = {
   'feo-b': {
     label: 'Штаб ФЭО-Б',
@@ -420,15 +424,15 @@ function applyTreeSearchResult(result) {
     state.sel = { kind: 'node', id: result.nodeId };
   }
   if (result.kind === 'employee') {
-    state.tab = 'people';
+    setActiveTab('people');
     state.sel = { kind: 'employee', id: result.employeeId };
   }
   if (result.kind === 'chat') {
-    state.tab = 'chats';
+    setActiveTab('chats');
     state.sel = { kind: 'chat', id: result.chatId };
   }
   if (result.kind === 'position') {
-    state.tab = 'positions';
+    setActiveTab('positions');
     state.sel = { kind: 'position', id: result.positionId };
   }
   clearTreeSearch({ preserveTreeScroll: true });
@@ -456,7 +460,7 @@ function navigateToNode(nodeId, { reveal = false } = {}) {
     state.sel = { kind: 'node', id: nodeId };
     state.pendingRevealNodeId = null;
   }
-  state.tab = data.nodes[nodeId].type === 'chat' ? 'chats' : 'people';
+  setActiveTab(data.nodes[nodeId].type === 'chat' ? 'chats' : 'people');
 }
 function pushSidebarContext() {
   state.sidebarNavStack.push({
@@ -484,7 +488,7 @@ function sidebarBack() {
   const previous = state.sidebarNavStack.pop();
   if (!previous) return;
   state.node = previous.node;
-  state.tab = previous.tab;
+  setActiveTab(previous.tab);
   state.sel = { ...previous.sel };
   state.sidebarNestedContext = previous.nested ? { ...previous.nested } : null;
 }
@@ -501,28 +505,28 @@ function showInStructure(target) {
     const employee = data.people.find((item) => item.id === target.employeeId);
     if (!employee) return;
     targetNodeId = employee.dep;
-    state.tab = 'people';
+    setActiveTab('people');
     state.sel = { kind: 'employee', id: employee.id };
   }
   if (target.kind === 'position') {
     const position = data.positions.find((item) => item.id === target.positionId);
     if (!position) return;
     targetNodeId = position.dep;
-    state.tab = 'positions';
+    setActiveTab('positions');
     state.sel = { kind: 'position', id: position.id };
   }
   if (target.kind === 'chat') {
     const chat = data.chats.find((item) => item.id === target.chatId);
     if (!chat) return;
     targetNodeId = chat.nodeId && data.nodes[chat.nodeId] ? chat.nodeId : chat.dep;
-    state.tab = 'chats';
+    setActiveTab('chats');
     state.sel = { kind: 'chat', id: chat.id };
   }
   if (target.kind === 'file') {
     const file = data.files.find((item) => item.id === target.fileId);
     if (!file) return;
     targetNodeId = file.dep;
-    state.tab = 'files';
+    setActiveTab('files');
     state.sel = { kind: 'file', id: file.id };
   }
   if (!data.nodes[targetNodeId]) return;
@@ -551,12 +555,12 @@ function openPrimaryChat(nodeId) {
   if (node.type === 'chat') {
     const chat = data.chats.find((c) => c.nodeId === nodeId) || data.chats.find((c) => c.id === node.primaryChatId);
     if (!chat) return toast('Для выбранного чат-узла не найден связанный чат.');
-    state.sel = { kind: 'chat', id: chat.id }; state.tab = 'chats'; toast(`Открыт чат: ${chat.name}`); return render();
+    state.sel = { kind: 'chat', id: chat.id }; setActiveTab('chats'); toast(`Открыт чат: ${chat.name}`); return render();
   }
   if (!node.primaryChatId) return toast('У этого подразделения пока нет основного чата.');
   const chat = data.chats.find((c) => c.id === node.primaryChatId);
   if (!chat) return toast('Основной чат не найден в мок-данных.');
-  state.sel = { kind: 'chat', id: chat.id }; state.tab = 'chats'; toast(`Открыт основной чат: ${chat.name}`); render();
+  state.sel = { kind: 'chat', id: chat.id }; setActiveTab('chats'); toast(`Открыт основной чат: ${chat.name}`); render();
 }
 
 function openAddModal(contextNodeId, type = 'employee') { state.isAddModalOpen = true; state.addType = type; state.addContextNodeId = contextNodeId; state.openTreeMenuNodeId = null; state.isCenterMenuOpen = false; render(); }
@@ -956,7 +960,11 @@ function bindInteractions() {
 
   app.querySelectorAll('[data-open-center-menu]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); state.isCenterMenuOpen = !state.isCenterMenuOpen; state.openTreeMenuNodeId = null; render(); });
   app.querySelectorAll('[data-center-action]').forEach((btn) => btn.onclick = () => { const action = btn.dataset.centerAction; state.isCenterMenuOpen = false; if (action === 'Открыть чат') return openPrimaryChat(state.node); toast(`${action}: ${data.nodes[state.node].name}`); render(); });
-  app.querySelectorAll('[data-tab]').forEach((btn) => btn.onclick = () => { state.tab = btn.dataset.tab; state.sel = { kind: 'node', id: state.node }; render(); });
+  app.querySelectorAll('[data-tab]').forEach((btn) => btn.onclick = () => {
+    setActiveTab(btn.dataset.tab);
+    state.sel = { kind: 'node', id: state.node };
+    render();
+  });
   const positionsSearchInput = app.querySelector('[data-positions-search]');
   if (positionsSearchInput) positionsSearchInput.oninput = () => { state.positionsSearchQuery = positionsSearchInput.value || ''; render(); };
   app.querySelectorAll('[data-pos-filter]').forEach((btn) => btn.onclick = () => { state.positionsStatusFilter = btn.dataset.posFilter; render(); });
@@ -1034,7 +1042,7 @@ function bindInteractions() {
   app.querySelectorAll('[data-open-all-chats]').forEach((btn) => btn.onclick = () => toast(`Смотреть все чаты: ${btn.dataset.openAllChats}`));
   app.querySelectorAll('[data-open-file-section]').forEach((btn) => btn.onclick = () => toast(`Открыть раздел файлов: ${btn.dataset.openFileSection}`));
   app.querySelectorAll('[data-open-people]').forEach((btn) => btn.onclick = () => {
-    state.tab = 'people';
+    setActiveTab('people');
     state.sel = { kind: 'node', id: btn.dataset.openPeople };
     render();
   });
