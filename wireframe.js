@@ -1,6 +1,6 @@
 const data = {
   nodes: {
-    root: { id: 'root', name: 'Вся организация', type: 'company', typeLabel: 'Компания', icon: '🏢', parent: null, children: ['hq', 'rnd'], summary: '8 участников · 3 руководителя · 4 чата · 5 файлов', leader: 'Генеральный директор', desc: 'Корневой узел', primaryChatId: null },
+    root: { id: 'root', name: 'Вся организация', type: 'company', typeLabel: 'Компания', icon: '🏢', parent: null, children: ['hq', 'rnd', 'vacancies'], summary: '8 участников · 3 руководителя · 4 чата · 5 файлов', leader: 'Генеральный директор', desc: 'Корневой узел', primaryChatId: null },
     hq: { id: 'hq', name: 'Штаб Нейроком', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'root', children: ['feo', 'hr-chat'], summary: '6 участников · 2 руководителя · 3 чата · 4 файла', leader: 'Лариса Иванова', desc: 'Операционный центр', primaryChatId: 'c3' },
     feo: { id: 'feo', name: 'Штаб ФЭО', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'hq', children: ['plan3', 'feo-b', 'all-system'], summary: '5 участников · 1 руководитель · 3 чата · 4 файла', leader: 'Иван Демьянов', desc: 'Финансы и аналитика', primaryChatId: 'c1' },
     plan3: { id: 'plan3', name: 'Планерки 3', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'feo', children: [], summary: '3 участника · 1 чат', leader: 'Марина Петрова', desc: 'Оперативные встречи', primaryChatId: 'c2' },
@@ -8,6 +8,7 @@ const data = {
     'all-system': { id: 'all-system', name: 'Все', type: 'system', typeLabel: 'Системная выборка', icon: '☰', parent: 'feo', children: [], summary: '5 участников · 3 чата', leader: 'Система', desc: 'Системная smart-выборка', primaryChatId: null },
     rnd: { id: 'rnd', name: 'Штаб НИОКР', type: 'department', typeLabel: 'Департамент', icon: '▦', parent: 'root', children: [], summary: '2 участника · 1 чат', leader: 'Павел Белов', desc: 'Исследования', primaryChatId: null },
     'hr-chat': { id: 'hr-chat', name: 'Руководители ФЭО', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'hq', children: [], summary: '5 участников', leader: 'Лариса Иванова', desc: 'Координационный чат', primaryChatId: 'c3' },
+    vacancies: { id: 'vacancies', name: 'Вакансии', type: 'system', typeLabel: 'Системная группа · HR Hub', icon: '☰', parent: 'root', children: [], summary: 'Не привязан к подразделению', leader: 'HR / People Hub', desc: 'Системная витрина подбора и кадрового статуса', primaryChatId: null },
   },
   people: [
     { id: 'e1', name: 'Лариса Иванова', pos: 'Менеджер', sub: 'Руководитель', status: 'online', dep: 'hq' },
@@ -32,6 +33,28 @@ const data = {
     { id: 'f1', name: 'Регламент отдела.pdf', type: 'PDF', owner: 'Лариса Иванова', dep: 'hq' },
     { id: 'f2', name: 'Шаблон планерки.docx', type: 'DOCX', owner: 'Марина Петрова', dep: 'feo' },
     { id: 'f3', name: 'Список задач.xlsx', type: 'XLSX', owner: 'Иван Иванов', dep: 'feo' },
+  ],
+};
+const vacanciesHubData = {
+  employees: [
+    { id: 'vh-e1', name: 'Анна Громова', status: 'online', role: 'Руководитель направления', action: 'Открыть' },
+    { id: 'vh-e2', name: 'Иван Демьянов', status: 'offline', role: 'Аналитик', action: 'Открыть' },
+    { id: 'vh-e3', name: 'Марина Петрова', status: 'online', role: 'Копирайтер', action: 'Связаться' },
+    { id: 'vh-e4', name: 'Елена Смирнова', status: 'online', role: 'Руководитель финконтроля', action: 'Связаться' },
+  ],
+  candidates: [
+    { id: 'vh-c1', name: 'Дмитрий Беляев', status: 'на рассмотрении', role: 'ML инженер' },
+    { id: 'vh-c2', name: 'Олег Соколов', status: 'интервью', role: 'Юрист' },
+    { id: 'vh-c3', name: 'Алина Сергеева', status: 'оффер', role: 'Аналитик' },
+    { id: 'vh-c4', name: 'Никита Орлов', status: 'резерв', role: 'DevOps' },
+  ],
+  former: [
+    { id: 'vh-f1', name: 'Роман Кузнецов', status: 'уволен', role: 'Юрист' },
+    { id: 'vh-f2', name: 'Тимур Азаров', status: 'переведен', role: 'Руководитель лаборатории' },
+  ],
+  blocked: [
+    { id: 'vh-b1', name: 'test_user_01', status: 'заблокирован', role: 'Тестовый аккаунт' },
+    { id: 'vh-b2', name: 'contractor_x', status: 'доступ отозван', role: 'Внешний подрядчик' },
   ],
 };
 
@@ -61,7 +84,7 @@ function extendMockTreeData() {
     { id: 'reporting-chat', name: 'Отчетность ФЭО', type: 'chat', typeLabel: 'Чат подразделения', icon: '💬', parent: 'feo', children: [], summary: '14 участников', leader: 'Иван Демьянов', desc: 'Кросс-командный чат отчетности', primaryChatId: 'c9' },
   ];
   nodeDefs.forEach((node) => { data.nodes[node.id] = node; });
-  data.nodes.root.children = ['hq', 'rnd', 'corp-it'];
+  data.nodes.root.children = ['hq', 'rnd', 'corp-it', 'vacancies'];
   data.nodes.hq.children = ['feo', 'fin-control', 'legal', 'hr-chat'];
   data.nodes.feo.children = ['plan3', 'feo-b', 'all-system', 'reporting-chat'];
   data.nodes.rnd.children = ['rnd-core', 'rnd-lab', 'rnd-system', 'rnd-chat'];
@@ -228,6 +251,7 @@ const state = {
   treeSearchDropdownOpen: false,
   treeSearchActiveIndex: 0,
   activeTreeFilter: 'all',
+  vacanciesTab: 'all',
   childOrderByParent: initialChildOrder,
   employeeOrderByDepartment: initialEmployeeOrderByDepartment,
   drag: { draggedNodeId: null, sourceParentId: null, overNodeId: null },
@@ -718,6 +742,21 @@ function aboutTabLabel(node) {
   if (node.type === 'chat') return 'О чате';
   return 'О подразделении';
 }
+function vacanciesRow(item, actions = [item.action || 'Открыть']) {
+  const initials = item.name.split(' ').map((v) => v[0]).join('').slice(0, 2);
+  const buttons = actions.map((label) => `<button data-vacancy-action='${label}' data-vacancy-id='${item.id}'>${label}</button>`).join('');
+  return `<div class='list-row'><div class='avatar'>${initials}</div><div class='grow'><b>${item.name}</b><div>${item.status}</div><small>${item.role}</small></div><div class='row-actions'>${buttons}</div></div>`;
+}
+function vacanciesHubContent() {
+  const sections = {
+    all: `<div class='card'><h3>Сотрудники</h3>${vacanciesHubData.employees.map((item) => vacanciesRow(item)).join('')}</div><div class='card'><h3>Кандидаты</h3>${vacanciesHubData.candidates.map((item) => vacanciesRow(item, ['Назначить', 'Отклонить'])).join('')}</div><div class='card'><h3>Бывшие сотрудники</h3>${vacanciesHubData.former.map((item) => vacanciesRow(item)).join('')}</div><div class='card'><h3>Заблокированы</h3>${vacanciesHubData.blocked.map((item) => vacanciesRow(item)).join('')}</div>`,
+    employees: vacanciesHubData.employees.map((item) => vacanciesRow(item)).join(''),
+    candidates: vacanciesHubData.candidates.map((item) => vacanciesRow(item, ['Назначить', 'Отклонить'])).join(''),
+    former: vacanciesHubData.former.map((item) => vacanciesRow(item)).join(''),
+    blocked: vacanciesHubData.blocked.map((item) => vacanciesRow(item)).join(''),
+  };
+  return sections[state.vacanciesTab] || sections.all;
+}
 function hasHeaderChatAction(node) {
   if (node.id === 'root') return false;
   if (node.type === 'chat') return Boolean(data.chats.find((chat) => chat.nodeId === node.id || chat.id === node.primaryChatId || chat.dep === node.id));
@@ -727,6 +766,7 @@ function hasHeaderChatAction(node) {
 function centerContent() {
   const node = data.nodes[state.node];
   const isRootNode = state.node === 'root';
+  const isVacanciesNode = state.node === 'vacancies';
   const breadcrumbs = breadcrumbNodeIds(state.node)
     .map((nodeId, index, list) => `<button class='crumb-btn ${nodeId === state.node ? 'active' : ''}' data-breadcrumb-node='${nodeId}'>${data.nodes[nodeId].name}</button>${index < list.length - 1 ? "<span class='crumb-sep'>/</span>" : ''}`)
     .join('');
@@ -789,6 +829,11 @@ function centerContent() {
     ? `<div class='card'><p><b>Вся организация</b></p><p><b>Подразделения:</b> ${Object.values(data.nodes).filter((n) => n.type !== 'chat' && n.type !== 'system').length}</p><p><b>Сотрудники:</b> ${data.people.length}</p><p><b>Чаты:</b> ${data.chats.length}</p><p><b>Файлы:</b> ${data.files.length}</p></div>`
     : `<div class='card'><p><b>Название:</b> ${node.name}</p><p><b>Тип:</b> ${node.typeLabel}</p><p><b>Руководитель:</b> ${node.leader}</p><p><b>Описание:</b> ${node.desc}</p></div>`;
   const centerMenu = state.isCenterMenuOpen ? `<div class='center-menu'>${(centerMenuByType[node.type] || centerMenuByType.department).map((action) => `<button data-center-action='${action}'>${action}</button>`).join('')}</div>` : '';
+  if (isVacanciesNode) {
+    const vacanciesTabs = [['all', 'Все'], ['employees', 'Сотрудники'], ['candidates', 'Кандидаты'], ['former', 'Бывшие сотрудники'], ['blocked', 'Заблокированы']]
+      .map(([key, label]) => `<button class='${state.vacanciesTab === key ? 'active' : ''}' data-vacancies-tab='${key}'>${label}</button>`).join('');
+    return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${vacanciesTabs}</div><div class='card'><p><b>HR / People Hub</b> · Не привязан к подразделению</p></div>${vacanciesHubContent()}`;
+  }
   return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'>${openChatButton}<button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', aboutTabLabel(node)]].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
@@ -1028,6 +1073,11 @@ function bindInteractions() {
     state.sel = { kind: 'node', id: state.node };
     render();
   });
+  app.querySelectorAll('[data-vacancies-tab]').forEach((btn) => btn.onclick = () => {
+    state.vacanciesTab = btn.dataset.vacanciesTab;
+    render();
+  });
+  app.querySelectorAll('[data-vacancy-action]').forEach((btn) => btn.onclick = () => toast(`${btn.dataset.vacancyAction}: ${btn.dataset.vacancyId}`));
   const positionsSearchInput = app.querySelector('[data-positions-search]');
   if (positionsSearchInput) positionsSearchInput.oninput = () => { state.positionsSearchQuery = positionsSearchInput.value || ''; render(); };
   app.querySelectorAll('[data-pos-filter]').forEach((btn) => btn.onclick = () => { state.positionsStatusFilter = btn.dataset.posFilter; render(); });
