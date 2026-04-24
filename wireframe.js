@@ -342,12 +342,13 @@ function highlightMatch(text, query) {
 }
 function resolveNodeTypeLabel(nodeType) { return nodeType === 'chat' ? 'Чат' : 'Подразделение'; }
 function isOrgNode(node) { return ['company', 'department', 'team', 'group'].includes(node.type); }
+function normalizeTreeFilter(filter) { return ['all', 'departments', 'chats'].includes(filter) ? filter : 'all'; }
 function buildTreeFilterModel(activeFilter) {
-  if (activeFilter === 'all') return { visibleNodeIds: null, hasRenderableNodes: true };
-  if (activeFilter === 'positions') return { visibleNodeIds: new Set(), hasRenderableNodes: false };
+  const safeFilter = normalizeTreeFilter(activeFilter);
+  if (safeFilter === 'all') return { visibleNodeIds: null, hasRenderableNodes: true };
 
   const matchedNodeIds = Object.values(data.nodes)
-    .filter((node) => (activeFilter === 'departments' ? isOrgNode(node) : node.type === 'chat'))
+    .filter((node) => (safeFilter === 'departments' ? isOrgNode(node) : node.type === 'chat'))
     .map((node) => node.id);
   const visibleNodeIds = new Set();
   matchedNodeIds.forEach((nodeId) => {
@@ -367,10 +368,11 @@ function ensureNodeVisibleInTreeFilter(nodeId) {
   toast('Фильтр переключен на «Все», чтобы показать выбранный узел');
 }
 function buildTreeSearchModel(query, activeFilter = state.activeTreeFilter) {
+  const safeFilter = normalizeTreeFilter(activeFilter);
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return { results: [], visibleNodeIds: null, autoExpandNodeIds: null, matchedNodeIds: null };
 
-  const filterModel = buildTreeFilterModel(activeFilter);
+  const filterModel = buildTreeFilterModel(safeFilter);
   const results = [];
   const matchedNodeIds = new Set();
   const visibleNodeIds = new Set(['root']);
@@ -390,9 +392,9 @@ function buildTreeSearchModel(query, activeFilter = state.activeTreeFilter) {
   };
 
   Object.values(data.nodes).forEach((node) => {
-    const nodeAllowedByFilter = activeFilter === 'all'
-      || (activeFilter === 'departments' && isOrgNode(node))
-      || (activeFilter === 'chats' && node.type === 'chat');
+    const nodeAllowedByFilter = safeFilter === 'all'
+      || (safeFilter === 'departments' && isOrgNode(node))
+      || (safeFilter === 'chats' && node.type === 'chat');
     if (!nodeAllowedByFilter) return;
     if (filterModel.visibleNodeIds && !filterModel.visibleNodeIds.has(node.id)) return;
     if (!node.name.toLowerCase().includes(normalizedQuery)) return;
@@ -400,14 +402,14 @@ function buildTreeSearchModel(query, activeFilter = state.activeTreeFilter) {
     addNodePath(node.id);
     results.push({ id: `node:${node.id}`, kind: 'node', title: node.name, typeLabel: resolveNodeTypeLabel(node.type), context: nodeContext(node.id), nodeId: node.id });
   });
-  if (activeFilter === 'all') {
+  if (safeFilter === 'all') {
   data.people.forEach((person) => {
     if (!person.name.toLowerCase().includes(normalizedQuery)) return;
     addNodePath(person.dep);
     results.push({ id: `employee:${person.id}`, kind: 'employee', title: person.name, typeLabel: 'Сотрудник', context: data.nodes[person.dep]?.name || 'Оргструктура', employeeId: person.id, nodeId: person.dep });
   });
   }
-  if (activeFilter === 'all' || activeFilter === 'chats') {
+  if (safeFilter === 'all' || safeFilter === 'chats') {
   data.chats.forEach((chat) => {
     if (!chat.name.toLowerCase().includes(normalizedQuery)) return;
     const nodeId = chat.nodeId && data.nodes[chat.nodeId] ? chat.nodeId : chat.dep;
@@ -416,7 +418,7 @@ function buildTreeSearchModel(query, activeFilter = state.activeTreeFilter) {
     results.push({ id: `chat:${chat.id}`, kind: 'chat', title: chat.name, typeLabel: 'Чат', context: data.nodes[nodeId]?.name || 'Оргструктура', chatId: chat.id, nodeId });
   });
   }
-  if (activeFilter === 'all' || activeFilter === 'positions') {
+  if (safeFilter === 'all') {
   data.positions.forEach((position) => {
     if (!position.title.toLowerCase().includes(normalizedQuery)) return;
     addNodePath(position.dep);
@@ -875,6 +877,7 @@ function historyDrawerContent() {
 }
 
 function render({ preserveTreeScroll = false, allowPreserveWithPendingReveal = false } = {}) {
+  state.activeTreeFilter = normalizeTreeFilter(state.activeTreeFilter);
   const filterModel = buildTreeFilterModel(state.activeTreeFilter);
   const searchModel = buildTreeSearchModel(state.treeSearchQuery, state.activeTreeFilter);
   const searchResults = state.treeSearchQuery.trim() ? searchModel.results : [];
@@ -890,12 +893,9 @@ function render({ preserveTreeScroll = false, allowPreserveWithPendingReveal = f
   const treeFilterButtons = [
     ['all', 'Все'],
     ['departments', 'Подразделения'],
-    ['positions', 'Должности'],
     ['chats', 'Чаты'],
   ].map(([key, label]) => `<button class='${state.activeTreeFilter === key ? 'active' : ''}' data-tree-filter='${key}'>${label}</button>`).join('');
-  const treeContent = state.activeTreeFilter === 'positions' && !filterModel.hasRenderableNodes
-    ? `<div class='empty'>Должности отображаются во вкладке выбранного подразделения</div>`
-    : renderTree('root', null, 0, searchModel, filterModel);
+  const treeContent = renderTree('root', null, 0, searchModel, filterModel);
   const previousTreeScrollTop = preserveTreeScroll ? app.querySelector('.panel.left')?.scrollTop ?? null : null;
   app.innerHTML = `<div class='layout'><div class='panel left ${(state.treeSearchQuery.trim() || state.activeTreeFilter !== 'all') ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/><button class='tree-search-clear ${showSearchClear ? 'visible' : ''}' data-clear-tree-search='1' aria-label='Очистить поиск'>×</button>${searchDropdown}</div><div class='chips'>${treeFilterButtons}</div>${treeContent}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
@@ -944,7 +944,7 @@ function bindInteractions() {
     applyTreeSearchResult(found);
   });
   app.querySelectorAll('[data-tree-filter]').forEach((btn) => btn.onclick = () => {
-    state.activeTreeFilter = btn.dataset.treeFilter;
+    state.activeTreeFilter = normalizeTreeFilter(btn.dataset.treeFilter);
     state.treeSearchDropdownOpen = state.treeSearchQuery.trim().length > 0;
     renderForTreeInteraction();
   });
