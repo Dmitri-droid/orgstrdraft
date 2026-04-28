@@ -585,7 +585,7 @@ function updateTreeSearch(nextValue) {
     renderForTreeInteraction();
   }, 150);
 }
-function clearTreeSearch({ keepFocus = false, preserveTreeScroll = false } = {}) {
+function clearTreeSearch({ keepFocus = false, preserveScroll = true } = {}) {
   if (treeSearchDebounceTimerId !== null) {
     window.clearTimeout(treeSearchDebounceTimerId);
     treeSearchDebounceTimerId = null;
@@ -595,7 +595,7 @@ function clearTreeSearch({ keepFocus = false, preserveTreeScroll = false } = {})
   state.treeSearchResults = [];
   state.treeSearchDropdownOpen = false;
   state.treeSearchActiveIndex = 0;
-  render({ preserveTreeScroll, allowPreserveWithPendingReveal: preserveTreeScroll });
+  render({ preserveScroll, allowPreserveWithPendingReveal: preserveScroll });
   if (keepFocus) {
     window.requestAnimationFrame(() => {
       const input = app.querySelector('[data-tree-search-input]');
@@ -621,7 +621,7 @@ function applyTreeSearchResult(result) {
     setActiveTab('positions');
     state.sel = { kind: 'position', id: result.positionId };
   }
-  clearTreeSearch({ preserveTreeScroll: true });
+  clearTreeSearch({ preserveScroll: false });
 }
 
 function focusNodeInTree(targetNodeId) {
@@ -720,7 +720,7 @@ function showInStructure(target) {
   ensureNodeVisibleInTreeFilter(targetNodeId);
   toast(`Показано в структуре: ${data.nodes[targetNodeId].name}`);
   focusNodeInTree(targetNodeId);
-  render();
+  render({ preserveScroll: false });
 }
 
 function processPendingReveal() {
@@ -1057,7 +1057,43 @@ function historyDrawerContent() {
   return `<div class='drawer-overlay open' data-close-history='1'><aside class='settings-drawer history-drawer'><div class='drawer-header'><div><h3>История изменений</h3><div class='muted'>Журнал изменений по подразделению и связанным сущностям</div><div class='muted'>Подразделение: ${activeNode.name}</div></div><button data-close-history='1'>✕</button></div><div class='drawer-section'><div class='chips'>${filterButtons}</div></div><div class='drawer-section history-list'>${rows}</div></aside></div>`;
 }
 
-function render({ preserveTreeScroll = false, allowPreserveWithPendingReveal = false } = {}) {
+function captureScrollState() {
+  return {
+    tree: app.querySelector('[data-scroll="tree"]')?.scrollTop ?? 0,
+    content: app.querySelector('[data-scroll="content"]')?.scrollTop ?? 0,
+    sidebar: app.querySelector('[data-scroll="sidebar"]')?.scrollTop ?? 0,
+  };
+}
+function restoreScrollState(scrollState) {
+  if (!scrollState) return;
+  window.requestAnimationFrame(() => {
+    const tree = app.querySelector('[data-scroll="tree"]');
+    const content = app.querySelector('[data-scroll="content"]');
+    const sidebar = app.querySelector('[data-scroll="sidebar"]');
+    if (tree) tree.scrollTop = scrollState.tree;
+    if (content) content.scrollTop = scrollState.content;
+    if (sidebar) sidebar.scrollTop = scrollState.sidebar;
+  });
+}
+function ensureLayoutShell() {
+  let layout = app.querySelector('.layout');
+  if (!layout) {
+    app.innerHTML = `<div class='layout'><div class='panel left' data-scroll='tree'></div><div class='panel center' data-scroll='content'></div><div class='panel right' data-scroll='sidebar'></div></div><div data-ui-overlays='1'></div>`;
+    layout = app.querySelector('.layout');
+  }
+  const leftPanel = app.querySelector('[data-scroll="tree"]');
+  const centerPanel = app.querySelector('[data-scroll="content"]');
+  const rightPanel = app.querySelector('[data-scroll="sidebar"]');
+  let overlays = app.querySelector('[data-ui-overlays]');
+  if (!overlays) {
+    overlays = document.createElement('div');
+    overlays.setAttribute('data-ui-overlays', '1');
+    app.appendChild(overlays);
+  }
+  return { leftPanel, centerPanel, rightPanel, overlays };
+}
+
+function render({ preserveScroll = true, allowPreserveWithPendingReveal = false } = {}) {
   state.activeTreeFilter = normalizeTreeFilter(state.activeTreeFilter);
   const filterModel = buildTreeFilterModel(state.activeTreeFilter);
   const searchModel = buildTreeSearchModel(state.treeSearchQuery, state.activeTreeFilter);
@@ -1077,19 +1113,25 @@ function render({ preserveTreeScroll = false, allowPreserveWithPendingReveal = f
     ['chats', 'Чаты'],
   ].map(([key, label]) => `<button class='${state.activeTreeFilter === key ? 'active' : ''}' data-tree-filter='${key}'>${label}</button>`).join('');
   const treeContent = renderTree('root', null, 0, searchModel, filterModel);
-  const previousTreeScrollTop = preserveTreeScroll ? app.querySelector('.panel.left')?.scrollTop ?? null : null;
-  app.innerHTML = `<div class='layout'><div class='panel left ${(state.treeSearchQuery.trim() || state.activeTreeFilter !== 'all') ? 'is-filtered' : ''}'><h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/><button class='tree-search-clear ${showSearchClear ? 'visible' : ''}' data-clear-tree-search='1' aria-label='Очистить поиск'>×</button>${searchDropdown}</div><div class='chips'>${treeFilterButtons}</div>${treeContent}</div><div class='panel center'>${centerContent()}</div><div class='panel right'>${detailsContent()}</div></div>${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
+  const previousScrollState = preserveScroll ? captureScrollState() : null;
+  const { leftPanel, centerPanel, rightPanel, overlays } = ensureLayoutShell();
+  leftPanel.className = `panel left ${(state.treeSearchQuery.trim() || state.activeTreeFilter !== 'all') ? 'is-filtered' : ''}`;
+  leftPanel.innerHTML = `<h3>Оргструктура</h3><div class='tree-search-wrap'><input data-tree-search-input value='${escapeHtml(state.treeSearchInput)}' placeholder='Поиск в структуре'/><button class='tree-search-clear ${showSearchClear ? 'visible' : ''}' data-clear-tree-search='1' aria-label='Очистить поиск'>×</button>${searchDropdown}</div><div class='chips'>${treeFilterButtons}</div>${treeContent}`;
+  centerPanel.className = 'panel center';
+  centerPanel.innerHTML = centerContent();
+  rightPanel.className = 'panel right';
+  rightPanel.innerHTML = detailsContent();
+  overlays.innerHTML = `${historyDrawerContent()}${settingsDrawerContent()}${modalContent()}`;
   bindInteractions();
-  if (preserveTreeScroll && previousTreeScrollTop !== null && (allowPreserveWithPendingReveal || state.pendingRevealNodeId === null)) {
-    const currentTreePanel = app.querySelector('.panel.left');
-    if (currentTreePanel) currentTreePanel.scrollTop = previousTreeScrollTop;
+  if (preserveScroll && previousScrollState && (allowPreserveWithPendingReveal || state.pendingRevealNodeId === null)) {
+    restoreScrollState(previousScrollState);
   }
   processPendingReveal();
   processPendingEmployeeReveal();
 }
 
 function renderForTreeInteraction() {
-  render({ preserveTreeScroll: true });
+  render({ preserveScroll: true });
 }
 
 function bindInteractions() {
@@ -1132,7 +1174,7 @@ function bindInteractions() {
   });
   app.querySelectorAll('[data-breadcrumb-node]').forEach((btn) => btn.onclick = () => {
     navigateToNode(btn.dataset.breadcrumbNode, { reveal: true });
-    render();
+    render({ preserveScroll: false });
   });
   app.querySelectorAll('[data-chevron]').forEach((btn) => btn.onclick = (e) => { e.stopPropagation(); const id = btn.dataset.chevron; state.exp[id] = !state.exp[id]; state.openTreeMenuNodeId = null; renderForTreeInteraction(); });
   app.querySelectorAll('[data-select-node]').forEach((btn) => btn.onclick = () => {
@@ -1276,12 +1318,12 @@ function bindInteractions() {
   app.querySelectorAll('[data-nav-up]').forEach((btn) => btn.onclick = () => {
     if (btn.disabled || !btn.dataset.navUp) return;
     navigateToNode(btn.dataset.navUp, { reveal: true });
-    renderForTreeInteraction();
+    render({ preserveScroll: false });
   });
   app.querySelectorAll('[data-nav-down]').forEach((btn) => btn.onclick = () => {
     if (btn.disabled || !btn.dataset.navDown) return;
     navigateToNode(btn.dataset.navDown, { reveal: true });
-    renderForTreeInteraction();
+    render({ preserveScroll: false });
   });
   app.querySelectorAll('[data-show-in-structure]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'node', nodeId: btn.dataset.showInStructure }));
   app.querySelectorAll('[data-show-employee]').forEach((btn) => btn.onclick = () => showInStructure({ kind: 'employee', employeeId: btn.dataset.showEmployee }));
