@@ -765,8 +765,8 @@ function openPrimaryChat(nodeId) {
 function openAddModal(contextNodeId, type = 'employee') {
   state.isAddModalOpen = true;
   state.addContextNodeId = contextNodeId;
-  const contextNode = data.nodes[contextNodeId];
-  state.addType = contextNode?.type === 'chat' ? 'employee' : type;
+  const selectedNode = data.nodes[state.node] || data.nodes[contextNodeId];
+  state.addType = selectedNode?.type === 'chat' ? 'employee' : type;
   state.openTreeMenuNodeId = null;
   state.isCenterMenuOpen = false;
   render();
@@ -1034,8 +1034,11 @@ function detailsContent() {
 }
 
 function modalContent() {
-  if (!state.isAddModalOpen) return ''; const node = data.nodes[state.addContextNodeId]; let form = '';
-  const isChatNode = node.type === 'chat';
+  if (!state.isAddModalOpen) return '';
+  const selectedNode = data.nodes[state.node] || data.nodes[state.addContextNodeId];
+  const node = selectedNode || data.nodes[state.addContextNodeId];
+  let form = '';
+  const isChatNode = selectedNode?.type === 'chat';
   const allowedAddTypes = isChatNode ? ['employee', 'file'] : Object.keys(addTypes);
   const modalTypeLabels = isChatNode ? { employee: 'Сотрудник', file: 'Файл' } : addTypes;
   if (!allowedAddTypes.includes(state.addType)) state.addType = isChatNode ? 'employee' : 'employee';
