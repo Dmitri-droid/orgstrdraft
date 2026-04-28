@@ -57,6 +57,7 @@ const vacanciesHubData = {
     { id: 'vh-b2', name: 'contractor_x', status: 'доступ отозван', role: 'Внешний подрядчик' },
   ],
 };
+const chatParticipantsByChatId = {};
 
 function extendMockTreeData() {
   const nodeDefs = [
@@ -215,6 +216,68 @@ function ensureRichDemoData() {
 }
 
 ensureRichDemoData();
+function ensureChatParticipants() {
+  const statusCycle = ['online', 'away', 'offline'];
+  const firstNames = ['София', 'Кирилл', 'Виктория', 'Максим', 'Наталья', 'Егор', 'Дарья', 'Павел', 'Ксения', 'Лев', 'Вероника', 'Георгий'];
+  const lastNames = ['Орлова', 'Никитин', 'Калинина', 'Титов', 'Селезнева', 'Фомин', 'Жукова', 'Крылов', 'Дроздова', 'Котов', 'Рябова', 'Сафонов'];
+  let syntheticSeq = 1;
+  const nextSynthetic = (dep, roleHint = 'Специалист') => {
+    const id = `cp${syntheticSeq}`;
+    const name = `${firstNames[syntheticSeq % firstNames.length]} ${lastNames[syntheticSeq % lastNames.length]}`;
+    syntheticSeq += 1;
+    return { id, name, pos: roleHint, sub: data.nodes[dep]?.name || 'Не привязан к подразделению', status: statusCycle[syntheticSeq % statusCycle.length], dep };
+  };
+  const targetCount = (chat) => {
+    if (chat.name.includes('Общий чат ФЭО')) return 24;
+    if (chat.name.includes('Руководители')) return 8;
+    if (chat.name.includes('Планерка')) return 10;
+    if (chat.name.includes('Юридический чат')) return 10;
+    if (chat.name.includes('Финконтроль')) return 10;
+    if (chat.type === 'Командный') return 20;
+    if (chat.type === 'Управленческий') return 8;
+    if (chat.type === 'Операционный') return 10;
+    return Math.max(8, Math.min(12, Number(chat.participants) || 8));
+  };
+  const allPeople = [...data.people];
+  data.chats.forEach((chat, chatIndex) => {
+    const desired = targetCount(chat);
+    const inDepartment = allPeople.filter((person) => person.dep === chat.dep);
+    const leaders = allPeople.filter((person) => person.pos.toLowerCase().includes('руковод'));
+    const basePool = chat.name.includes('Руководители') ? leaders : inDepartment;
+    const pool = (basePool.length ? basePool : allPeople).map((person) => ({ ...person }));
+    const participants = [];
+    const used = new Set();
+    while (participants.length < desired && pool.length) {
+      const candidate = pool[(participants.length + chatIndex) % pool.length];
+      if (used.has(candidate.id)) {
+        if (used.size >= pool.length) break;
+        continue;
+      }
+      used.add(candidate.id);
+      participants.push(candidate);
+    }
+    while (participants.length < desired) {
+      participants.push(nextSynthetic(chat.dep, chat.name.includes('Руководители') ? 'Руководитель направления' : 'Специалист'));
+    }
+    participants.forEach((participant) => {
+      if (!data.people.find((person) => person.id === participant.id)) data.people.push(participant);
+    });
+    chatParticipantsByChatId[chat.id] = participants;
+    chat.participants = participants.map((participant) => participant.id);
+    chat.participantsIds = [...chat.participants];
+  });
+}
+ensureChatParticipants();
+function syncChatNodeSummaries() {
+  Object.values(data.nodes).forEach((node) => {
+    if (node.type !== 'chat') return;
+    const chat = chatByNodeId(node.id);
+    if (!chat) return;
+    const count = chatParticipantCount(chat);
+    node.summary = `${count} участников · 1 чат`;
+  });
+}
+syncChatNodeSummaries();
 
 const treeMenuByType = {
   company: ['Открыть', 'Добавить подразделение', 'Импорт структуры', 'Настроить структуру'],
@@ -376,6 +439,53 @@ function highlightMatch(text, query) {
   return `${escapeHtml(source.slice(0, index))}<mark>${escapeHtml(source.slice(index, index + needle.length))}</mark>${escapeHtml(source.slice(index + needle.length))}`;
 }
 function resolveNodeTypeLabel(nodeType) { return nodeType === 'chat' ? 'Чат' : 'Подразделение'; }
+function chatByNodeId(nodeId) {
+  const node = data.nodes[nodeId];
+  if (!node || node.type !== 'chat') return null;
+  return data.chats.find((chat) => chat.nodeId === nodeId) || data.chats.find((chat) => chat.id === node.primaryChatId) || data.chats.find((chat) => chat.dep === nodeId) || null;
+}
+function chatParticipants(chatId) {
+  return chatParticipantsByChatId[chatId] || [];
+}
+function chatParticipantCount(chat) {
+  if (Array.isArray(chat.participants) && chat.participants.length) return chat.participants.length;
+  if (Array.isArray(chat.participantsIds) && chat.participantsIds.length) return chat.participantsIds.length;
+  return chatParticipants(chat.id).length || Number(chat.participants) || 0;
+}
+function personById(personId) {
+  return data.people.find((person) => person.id === personId) || null;
+}
+function chatPeople(chat) {
+  if (!chat) return [];
+  if (Array.isArray(chat.participants) && chat.participants.length) {
+    return chat.participants.map((participantId) => personById(participantId)).filter(Boolean);
+  }
+  if (Array.isArray(chat.participantsIds) && chat.participantsIds.length) {
+    return chat.participantsIds.map((participantId) => personById(participantId)).filter(Boolean);
+  }
+  return chatParticipants(chat.id);
+}
+function peopleForNode(nodeId) {
+  const node = data.nodes[nodeId];
+  if (!node) return [];
+  if (node.type === 'chat') {
+    const chat = chatByNodeId(nodeId);
+    if (!chat) return [];
+    const existing = chatPeople(chat);
+    if (existing.length) return existing;
+    const fallbackCount = chatParticipantCount(chat);
+    return Array.from({ length: fallbackCount }).map((_, index) => ({
+      id: `fallback-${chat.id}-${index + 1}`,
+      name: `Участник ${index + 1}`,
+      pos: 'Участник чата',
+      sub: data.nodes[chat.dep]?.name || 'Чат',
+      status: index % 3 === 0 ? 'online' : index % 3 === 1 ? 'away' : 'offline',
+      dep: chat.dep,
+    }));
+  }
+  if (nodeId === 'root') return data.people;
+  return (state.employeeOrderByDepartment[nodeId] || []).map((id) => data.people.find((x) => x.id === id)).filter(Boolean);
+}
 function isOrgNode(node) { return ['company', 'department', 'team', 'group'].includes(node.type); }
 function normalizeTreeFilter(filter) { return ['all', 'departments', 'chats'].includes(filter) ? filter : 'all'; }
 function buildTreeFilterModel(activeFilter) {
@@ -755,7 +865,15 @@ function rootSummaryMetrics() {
   };
 }
 function nodeSummaryLabel(nodeId) {
-  if (nodeId !== 'root') return data.nodes[nodeId].summary;
+  if (nodeId !== 'root') {
+    const node = data.nodes[nodeId];
+    if (node.type === 'chat') {
+      const chat = chatByNodeId(nodeId);
+      const count = chat ? chatParticipantCount(chat) : 0;
+      return `${count} участников · 1 чат`;
+    }
+    return node.summary;
+  }
   const metrics = rootSummaryMetrics();
   return `${metrics.employees} сотрудников · ${metrics.departments} подразделений · ${metrics.chats} чатов · ${metrics.files} файлов`;
 }
@@ -793,9 +911,8 @@ function centerContent() {
   const breadcrumbs = breadcrumbNodeIds(state.node)
     .map((nodeId, index, list) => `<button class='crumb-btn ${nodeId === state.node ? 'active' : ''}' data-breadcrumb-node='${nodeId}'>${data.nodes[nodeId].name}</button>${index < list.length - 1 ? "<span class='crumb-sep'>/</span>" : ''}`)
     .join('');
-  const people = state.node === 'root'
-    ? data.people
-    : (state.employeeOrderByDepartment[state.node] || []).map((id) => data.people.find((x) => x.id === id)).filter(Boolean);
+  const currentNodeChat = chatByNodeId(state.node);
+  const people = peopleForNode(state.node);
   const positions = state.node === 'root' ? data.positions : data.positions.filter((x) => x.dep === state.node);
   const visiblePositions = positions
     .filter((position) => {
@@ -815,7 +932,9 @@ function centerContent() {
       content = `<div class='card'><h3>Руководители</h3>${leaders.map((person) => `<div>${person.name} · ${person.pos}</div>`).join('') || "<div class='muted'>Нет данных</div>"}</div><div class='card'><h3>Недавно добавленные</h3>${recent.map((person) => `<div>${person.name} · ${person.sub}</div>`).join('')}</div><div class='card'><h3>Статусы</h3><div>Online: ${people.filter((p) => p.status === 'online').length}</div><div>Away: ${people.filter((p) => p.status === 'away').length}</div><div>Offline: ${people.filter((p) => p.status === 'offline').length}</div></div><button data-root-show-all='people'>Показать всех сотрудников</button>`;
     } else {
       const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='people'>← К обзору</button></div>` : '';
-      content = `${back}<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>${list(people, 'employee', (x) => `<button class='row-drag-handle' data-emp-drag='${x.id}' draggable='true'>⋮⋮</button><div class='row-main-hit' data-select-employee='${x.id}'><div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><span class='status'>${x.status}</span></div><button data-msg='${x.name}'>Написать</button>`)}`;
+      const chatPeopleEmpty = node.type === 'chat' && !people.length ? "<div class='empty'>В этом чате пока нет участников.</div>" : '';
+      const peopleRows = people.length ? list(people, 'employee', (x) => `<button class='row-drag-handle' data-emp-drag='${x.id}' draggable='true'>⋮⋮</button><div class='row-main-hit' data-select-employee='${x.id}'><div class='avatar'>${x.name.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${x.name}</b><div>${x.pos}</div><small>${x.sub}</small></div><span class='status'>${x.status}</span></div><button data-msg='${x.name}'>Написать</button>`) : chatPeopleEmpty;
+      content = `${back}<div class='row-actions'><input placeholder='Поиск сотрудника'/><button>Фильтр</button><button>Сортировка</button></div>${peopleRows}`;
     }
   }
   if (state.tab === 'positions') {
@@ -832,10 +951,10 @@ function centerContent() {
     if (isRootNode && state.rootTabMode.chats !== 'full') {
       const mainChats = chats.filter((chat) => chat.type === 'Основной').slice(0, 4);
       const recentChats = chats.slice(-4);
-      content = `<div class='card'><h3>Основные чаты</h3>${mainChats.map((chat) => `<div>${chat.name} · ${chat.participants} участников</div>`).join('') || "<div class='muted'>Нет данных</div>"}</div><div class='card'><h3>Ключевые / недавние</h3>${recentChats.map((chat) => `<div>${chat.name} · ${chat.last}</div>`).join('')}</div><button data-root-show-all='chats'>Показать все чаты</button>`;
+      content = `<div class='card'><h3>Основные чаты</h3>${mainChats.map((chat) => `<div>${chat.name} · ${chatParticipantCount(chat)} участников</div>`).join('') || "<div class='muted'>Нет данных</div>"}</div><div class='card'><h3>Ключевые / недавние</h3>${recentChats.map((chat) => `<div>${chat.name} · ${chat.last}</div>`).join('')}</div><button data-root-show-all='chats'>Показать все чаты</button>`;
     } else {
       const back = isRootNode ? `<div class='row-actions'><button data-root-summary-back='chats'>← К обзору</button></div>` : '';
-      content = `${back}${list(chats, 'chat', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${x.participants} участников</div><small>${x.last}</small></div><button data-open-chat='${x.id}'>Открыть</button>`)}`;
+      content = `${back}${list(chats, 'chat', (x) => `<div class='grow'><b>${x.name}</b><div>${x.type} · ${chatParticipantCount(x)} участников</div><small>${x.last}</small></div><button data-open-chat='${x.id}'>Открыть</button>`)}`;
     }
   }
   if (state.tab === 'files') {
@@ -884,16 +1003,9 @@ function detailsContent() {
     return `<div class='child-accordion'><button class='child-accordion-head' data-toggle-details-child='${childId}'><span class='details-node-icon'>${childId === 'plan3' ? '💬' : '▦'}</span><span class='grow'><b>${child.label}</b><div class='muted'>${child.employees} сотрудников</div></span><span class='chevron ${expanded ? 'open' : ''}'>▾</span></button>${expanded ? `<div class='child-accordion-body'><div><b>${child.primaryChatLabel}</b> · ${child.participants} участников</div><div><b>Связанные чаты</b> · ${child.linkedChats.join(' · ')}</div><div><b>Сотрудники</b> · ${child.employees}</div><div>${child.employeeNames.join(', ')} и ещё ${extraCount}</div><div><b>Файлы</b> · ${child.files}</div><div>например: ${child.fileExamples.join(', ')}</div><button class='link-btn' data-show-in-structure='${childId}'>Показать в структуре</button></div>` : ''}</div>`;
   }).join('');
   const relatedChatRows = (node.id === 'root'
-    ? [
-      { id: 'root-c1', name: 'Корпоративные объявления', participants: 120 },
-      { id: 'root-c2', name: 'Руководители компании', participants: 34 },
-      { id: 'root-c3', name: 'Операционный штаб', participants: 48 },
-    ]
-    : relatedChats.length ? relatedChats : [
-    { id: 'rc1', name: 'Общий чат ФЭО', participants: 52 },
-    { id: 'rc2', name: 'Руководители ФЭО', participants: 7 },
-    { id: 'rc3', name: 'Планерка ФЭО', participants: 18 },
-  ]).map((chat) => `<button class='link-row' data-open-chat='${chat.id}'><span>${chat.name}</span><small>${chat.participants} участников</small></button>`).join('');
+    ? data.chats.slice(0, 6)
+    : relatedChats.length ? relatedChats : data.chats.filter((chat) => chat.dep === node.id || chat.nodeId === node.id).slice(0, 3))
+    .map((chat) => `<button class='link-row' data-open-chat='${chat.id}'><span>${chat.name}</span><small>${chatParticipantCount(chat)} участников</small></button>`).join('');
   const fileRows = (relatedFiles.length ? relatedFiles : [
     { id: 'df1', name: 'Регламент работы ФЭО.pdf', updatedAt: '12.03.2024', type: '1.2 МБ' },
     { id: 'df2', name: 'Шаблон отчёта.xlsx', updatedAt: '01.02.2024', type: '96 КБ' },
@@ -909,7 +1021,7 @@ function detailsContent() {
   const chatSectionTitle = node.id === 'root' ? 'Глобальный чат компании' : 'Основной чат';
   const chatBadge = node.id === 'root' ? 'глобальный' : 'основной';
   const chatName = node.id === 'root' ? 'Общий чат компании' : (primaryChat ? primaryChat.name : `Чат ${node.name}`);
-  const chatParticipants = node.id === 'root' ? Math.max(...data.chats.map((chat) => chat.participants), 0) : (primaryChat ? primaryChat.participants : 38);
+  const chatParticipants = node.id === 'root' ? Math.max(...data.chats.map((chat) => chatParticipantCount(chat)), 0) : (primaryChat ? chatParticipantCount(primaryChat) : 0);
   return `<div class='card details-rich-card'>${hierarchyNav}<div class='details-head'><div class='details-head-main'><span class='details-node-icon'>${icon}</span><div><h3>${node.name}</h3><small>${node.typeLabel}</small></div></div></div><div class='details-section'><p>${node.id === 'feo' ? 'Финансово-экономическое обеспечение деятельности компании. Планирование, анализ, отчетность.' : node.desc}</p></div><div class='details-section'><div class='row-actions'><button data-primary-chat='${node.id}'>Открыть чат</button><button data-show-in-structure='${node.id}'>Показать в структуре</button><button data-msg='${node.leader}'>Написать руководителю</button></div></div><div class='details-section'><h4>Руководитель</h4><div class='leader-card'><div class='avatar'>${node.leader.split(' ').map((v) => v[0]).join('')}</div><div class='grow'><b>${node.leader}</b><div class='muted'>${leaderTitle}</div><button class='link-btn' data-open-profile='${node.leader}'>Открыть профиль</button></div><div class='row-actions'><button data-msg='${node.leader}'>✉</button><button data-quick-leader='${node.leader}'>⋯</button></div></div></div>${parentNode ? `<div class='details-section'><h4>Подчиняется / входит в</h4><div class='subtle-box'><b>${parentNode.name}</b><button class='link-btn' data-show-in-structure='${parentNode.id}'>Показать в структуре</button></div></div>` : ''}<div class='details-section'><h4>Подчинённые подразделения (${childIds.length})</h4><div class='details-list-stack'>${childBlocks || "<div class='empty'>Нет дочерних подразделений.</div>"}</div></div><div class='details-section'><h4>${chatSectionTitle}</h4><div class='subtle-box'><div><b>${chatName}</b><span class='wire-badge'>${chatBadge}</span></div><div class='muted'>${chatParticipants} участников</div><button data-primary-chat='${node.id}'>Открыть чат</button></div></div><div class='details-section'><h4>Связанные чаты</h4><div class='details-list-stack'>${relatedChatRows}<button class='link-btn' data-open-all-chats='${node.id}'>Смотреть все</button></div></div><div class='details-section'><h4>Файлы и документы</h4><div class='details-list-stack'><div class='subtle-box'><b>Бюджет и планирование</b><small>24 файла</small></div>${fileRows}<button data-open-file-section='${node.id}'>Открыть раздел</button></div></div><div class='details-section'><h4>Быстрые действия</h4><div class='details-list-stack'><button data-primary-chat='${node.id}'>Открыть основной чат</button><button data-open-people='${node.id}'>Перейти к сотрудникам</button><button data-history='${node.id}'>Показать историю изменений</button><button data-open-add='${node.id}'>Добавить сотрудника</button></div></div></div>`;
 }
 
