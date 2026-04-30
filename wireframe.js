@@ -1038,17 +1038,22 @@ function modalContent() {
   const selectedNode = data.nodes[state.node] || data.nodes[state.addContextNodeId];
   const node = selectedNode || data.nodes[state.addContextNodeId];
   let form = '';
-  const isChatNode = selectedNode?.type === 'chat';
-  const allowedAddTypes = isChatNode ? ['employee', 'file'] : Object.keys(addTypes);
-  const modalTypeLabels = isChatNode ? { employee: 'Сотрудника', file: 'Файл' } : addTypes;
-  const contextLabel = isChatNode ? 'Текущий чат' : 'Текущий контекст';
-  if (!allowedAddTypes.includes(state.addType)) state.addType = isChatNode ? 'employee' : 'employee';
+  const isChatAddModal = selectedNode?.type === 'chat';
+  const addModalTabs = isChatAddModal
+    ? ['Сотрудника', 'Файл']
+    : ['Сотрудника', 'Должность', 'Подразделение', 'Чат', 'Файл'];
+  const addModalTitle = isChatAddModal ? 'Добавить в чат' : 'Добавить в подразделение';
+  const contextLabel = isChatAddModal ? 'Текущий чат' : 'Текущий контекст';
+  const addTypeToLabel = { employee: 'Сотрудника', position: 'Должность', department: 'Подразделение', chat: 'Чат', file: 'Файл' };
+  const addLabelToType = { Сотрудника: 'employee', Должность: 'position', Подразделение: 'department', Чат: 'chat', Файл: 'file' };
+  const allowedAddTypes = addModalTabs.map((label) => addLabelToType[label]);
+  if (!allowedAddTypes.includes(state.addType)) state.addType = 'employee';
   if (state.addType === 'employee') form = `<label>Имя и фамилия <input placeholder='Анна Смирнова'/></label><label>Должность <input placeholder='Аналитик'/></label><label>Роль / функция <input placeholder='Финансы'/></label><label>Руководитель <select><option>Иван Демьянов</option><option>Лариса Иванова</option></select></label><label>Email / логин (optional) <input placeholder='anna@neurocom.ru'/></label>`;
   if (state.addType === 'position') form = `<label>Название должности <input placeholder='Координатор'/></label><label>Тип <select><option>Обычная</option><option>Руководящая</option><option>Вакансия</option></select></label><label>Кому подчиняется <input placeholder='Руководитель отдела'/></label><label>Описание <textarea placeholder='Краткое описание'></textarea></label><label>Статус <select><option>Занята</option><option>Вакантна</option></select></label>`;
   if (state.addType === 'department') form = `<label>Название подразделения <input placeholder='Группа контроля'/></label><label>Тип <select><option>Департамент</option><option>Отдел</option><option>Группа</option></select></label><label>Родительский узел <input value='${node.name}'/></label><label>Руководитель (optional) <input placeholder='ФИО'/></label><label>Описание <textarea placeholder='Описание'></textarea></label>`;
   if (state.addType === 'chat') form = `<label>Название чата <input placeholder='Планерка отдела'/></label><label>Тип чата <select><option>Общий</option><option>Служебный</option><option>Планерка</option></select></label><label><input type='checkbox'/> Сделать основным чатом подразделения</label><label>Описание <textarea placeholder='Заметка'></textarea></label>`;
   if (state.addType === 'file') form = `<label>Название файла <input placeholder='Регламент.pdf'/></label><label>Тип файла <input placeholder='PDF / DOCX'/></label><label>Описание <textarea placeholder='Описание'></textarea></label><label>Загрузка файла <div class='upload-placeholder'>Dropzone placeholder</div></label>`;
-  return `<div class='modal-overlay' data-close-modal='1'><div class='modal'><div class='modal-header'><div><h3>${isChatNode ? 'Добавить в чат' : 'Добавить в подразделение'}</h3><div class='muted'>${contextLabel}: ${node.name}</div></div><button data-close-modal='1'>✕</button></div><div class='entity-switcher'>${allowedAddTypes.map((key) => `<button class='${state.addType === key ? 'active' : ''}' data-add-type='${key}'>${modalTypeLabels[key]}</button>`).join('')}</div><div class='modal-form'>${form}</div><div class='modal-actions'><button data-close-modal='1'>Отмена</button><button data-submit-add='${state.addType}'>${submitLabels[state.addType]}</button></div></div></div>`;
+  return `<div class='modal-overlay' data-close-modal='1'><div class='modal'><div class='modal-header'><div><h3>${addModalTitle}</h3><div class='muted'>${contextLabel}: ${node.name}</div></div><button data-close-modal='1'>✕</button></div><div class='entity-switcher'>${allowedAddTypes.map((key) => `<button class='${state.addType === key ? 'active' : ''}' data-add-type='${key}'>${addTypeToLabel[key]}</button>`).join('')}</div><div class='modal-form'>${form}</div><div class='modal-actions'><button data-close-modal='1'>Отмена</button><button data-submit-add='${state.addType}'>${submitLabels[state.addType]}</button></div></div></div>`;
 }
 
 function settingsDrawerContent() {
