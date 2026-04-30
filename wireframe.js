@@ -1035,10 +1035,9 @@ function detailsContent() {
 
 function modalContent() {
   if (!state.isAddModalOpen) return '';
-  const selectedNode = data.nodes[state.node] || data.nodes[state.addContextNodeId];
-  const node = selectedNode || data.nodes[state.addContextNodeId];
+  const node = data.nodes[state.addContextNodeId];
   let form = '';
-  const isChatAddModal = selectedNode?.type === 'chat';
+  const isChatAddModal = node?.type === 'chat';
   const addModalTabs = isChatAddModal
     ? ['Сотрудника', 'Файл']
     : ['Сотрудника', 'Должность', 'Подразделение', 'Чат', 'Файл'];
