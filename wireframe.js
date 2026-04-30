@@ -863,7 +863,17 @@ function resetStructureOrder() {
   addHistoryEntry({ departmentId: state.node, eventType: 'reset_order', description: 'Сброшен пользовательский порядок', actor: 'Администратор', timeLabel: 'только что' });
 }
 
-function list(items, kind, template) { if (!items.length) return `<div class='empty'>Пусто для выбранного узла.</div>`; return items.map((item) => `<div class='list-row ${state.sel.kind === kind && state.sel.id === item.id ? 'selected' : ''}' data-k='${kind}' data-id='${item.id}'>${template(item)}</div>`).join(''); }
+function list(items, kind, template) {
+  if (!items.length) {
+    const node = data.nodes[state.node];
+    if (kind === 'employee') return `<div class='empty'>${node?.type === 'chat' ? 'В этом чате пока нет участников' : 'В подразделении нет сотрудников'}</div>`;
+    if (kind === 'file') return `<div class='empty'>Нет файлов</div>`;
+    if (kind === 'chat') return `<div class='empty'>Нет связанных чатов</div>`;
+    if (kind === 'position') return `<div class='empty'>Нет должностей</div>`;
+    return `<div class='empty'>Пусто для выбранного узла</div>`;
+  }
+  return items.map((item) => `<div class='list-row ${state.sel.kind === kind && state.sel.id === item.id ? 'selected' : ''}' data-k='${kind}' data-id='${item.id}'>${template(item)}</div>`).join('');
+}
 function rootSummaryMetrics() {
   return {
     employees: data.people.length,
@@ -880,7 +890,10 @@ function nodeSummaryLabel(nodeId) {
       const count = chat ? chatParticipantCount(chat) : 0;
       return `${count} участников · 1 чат`;
     }
-    return node.summary;
+    const peopleCount = peopleForNode(nodeId).length;
+    const chatsCount = data.chats.filter((chat) => chat.dep === nodeId || chat.nodeId === nodeId).length;
+    const filesCount = data.files.filter((file) => file.dep === nodeId).length;
+    return `${peopleCount} сотрудников · ${chatsCount} чатов · ${filesCount} файлов`;
   }
   const metrics = rootSummaryMetrics();
   return `${metrics.employees} сотрудников · ${metrics.departments} подразделений · ${metrics.chats} чатов · ${metrics.files} файлов`;
@@ -908,12 +921,14 @@ function vacanciesHubContent() {
 }
 function hasHeaderChatAction(node) {
   if (node.id === 'root') return false;
-  if (node.type === 'chat') return Boolean(data.chats.find((chat) => chat.nodeId === node.id || chat.id === node.primaryChatId || chat.dep === node.id));
-  return Boolean(node.primaryChatId || data.chats.find((chat) => chat.dep === node.id || chat.nodeId === node.id));
+  if (node.id === 'vacancies') return false;
+  if (node.type === 'chat') return true;
+  return Boolean(node.primaryChatId);
 }
 
 function centerContent() {
   const node = data.nodes[state.node];
+  if (node.type === 'chat' && !['people', 'files', 'about'].includes(state.tab)) setActiveTab('people');
   const isRootNode = state.node === 'root';
   const isVacanciesNode = state.node === 'vacancies';
   const breadcrumbs = breadcrumbNodeIds(state.node)
@@ -982,9 +997,12 @@ function centerContent() {
   if (isVacanciesNode) {
     const vacanciesTabs = [['all', 'Все'], ['employees', 'Сотрудники'], ['candidates', 'Кандидаты'], ['former', 'Бывшие сотрудники'], ['blocked', 'Заблокированы']]
       .map(([key, label]) => `<button class='${state.vacanciesTab === key ? 'active' : ''}' data-vacancies-tab='${key}'>${label}</button>`).join('');
-    return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'><button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${vacanciesTabs}</div><div class='card'><p><b>HR / People Hub</b> · Не привязан к подразделению</p></div>${vacanciesHubContent()}`;
+    return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'><button data-add-candidate='1'>Добавить кандидата</button><button data-import-candidates='1'>Импорт</button><button data-vacancies-filter='1'>Фильтр</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${vacanciesTabs}</div><div class='card'><p><b>HR / People Hub</b> · Не привязан к подразделению</p></div>${vacanciesHubContent()}`;
   }
-  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'>${openChatButton}<button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${[['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', aboutTabLabel(node)]].map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
+  const centerTabs = node.type === 'chat'
+    ? [['people', 'Люди'], ['files', 'Файлы'], ['about', 'О чате']]
+    : [['people', 'Люди'], ['positions', 'Должности'], ['chats', 'Чаты'], ['files', 'Файлы'], ['about', aboutTabLabel(node)]];
+  return `<div class='header'><div><div class='muted breadcrumbs'>${breadcrumbs}</div><h2>${node.name}</h2><div class='muted'>${nodeSummaryLabel(state.node)}</div></div><div class='row-actions toolbar-actions'>${openChatButton}<button data-open-add='${state.node}'>Добавить</button><button data-open-structure-settings='1'>Настроить структуру</button><div class='menu-anchor'><button data-open-center-menu='1'>Еще</button>${centerMenu}</div></div></div><div class='tabs'>${centerTabs.map(([k, l]) => `<button class='${state.tab === k ? 'active' : ''}' data-tab='${k}'>${l}</button>`).join('')}</div>${content}`;
 }
 
 function detailsContent() {
@@ -1366,6 +1384,9 @@ function bindInteractions() {
   app.querySelectorAll('[data-quick-leader]').forEach((btn) => btn.onclick = () => toast(`Быстрые действия: ${btn.dataset.quickLeader}`));
   app.querySelectorAll('[data-open-all-chats]').forEach((btn) => btn.onclick = () => toast(`Смотреть все чаты: ${btn.dataset.openAllChats}`));
   app.querySelectorAll('[data-open-file-section]').forEach((btn) => btn.onclick = () => toast(`Открыть раздел файлов: ${btn.dataset.openFileSection}`));
+  app.querySelectorAll('[data-add-candidate]').forEach((btn) => btn.onclick = () => toast('Добавить кандидата: mock action'));
+  app.querySelectorAll('[data-import-candidates]').forEach((btn) => btn.onclick = () => toast('Импорт: mock action'));
+  app.querySelectorAll('[data-vacancies-filter]').forEach((btn) => btn.onclick = () => toast('Фильтр: mock action'));
   app.querySelectorAll('[data-open-people]').forEach((btn) => btn.onclick = () => {
     setActiveTab('people');
     state.sel = { kind: 'node', id: btn.dataset.openPeople };
