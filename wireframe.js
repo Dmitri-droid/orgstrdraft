@@ -1026,13 +1026,21 @@ function detailsContent() {
 }
 
 function modalContent() {
-  if (!state.isAddModalOpen) return ''; const node = data.nodes[state.addContextNodeId]; let form = '';
+  if (!state.isAddModalOpen) return '';
+  const node = data.nodes[state.addContextNodeId];
+  const isChatAddModal = node?.type === 'chat';
+  const addTypeToLabel = { employee: 'Сотрудника', position: 'Должность', department: 'Подразделение', chat: 'Чат', file: 'Файл' };
+  const allowedAddTypes = isChatAddModal ? ['employee', 'file'] : Object.keys(addTypes);
+  if (!allowedAddTypes.includes(state.addType)) state.addType = 'employee';
+  const addModalTitle = isChatAddModal ? 'Добавить в чат' : 'Добавить в подразделение';
+  const contextLabel = isChatAddModal ? 'Текущий чат' : 'Текущий контекст';
+  let form = '';
   if (state.addType === 'employee') form = `<label>Имя и фамилия <input placeholder='Анна Смирнова'/></label><label>Должность <input placeholder='Аналитик'/></label><label>Роль / функция <input placeholder='Финансы'/></label><label>Руководитель <select><option>Иван Демьянов</option><option>Лариса Иванова</option></select></label><label>Email / логин (optional) <input placeholder='anna@neurocom.ru'/></label>`;
   if (state.addType === 'position') form = `<label>Название должности <input placeholder='Координатор'/></label><label>Тип <select><option>Обычная</option><option>Руководящая</option><option>Вакансия</option></select></label><label>Кому подчиняется <input placeholder='Руководитель отдела'/></label><label>Описание <textarea placeholder='Краткое описание'></textarea></label><label>Статус <select><option>Занята</option><option>Вакантна</option></select></label>`;
   if (state.addType === 'department') form = `<label>Название подразделения <input placeholder='Группа контроля'/></label><label>Тип <select><option>Департамент</option><option>Отдел</option><option>Группа</option></select></label><label>Родительский узел <input value='${node.name}'/></label><label>Руководитель (optional) <input placeholder='ФИО'/></label><label>Описание <textarea placeholder='Описание'></textarea></label>`;
   if (state.addType === 'chat') form = `<label>Название чата <input placeholder='Планерка отдела'/></label><label>Тип чата <select><option>Общий</option><option>Служебный</option><option>Планерка</option></select></label><label><input type='checkbox'/> Сделать основным чатом подразделения</label><label>Описание <textarea placeholder='Заметка'></textarea></label>`;
   if (state.addType === 'file') form = `<label>Название файла <input placeholder='Регламент.pdf'/></label><label>Тип файла <input placeholder='PDF / DOCX'/></label><label>Описание <textarea placeholder='Описание'></textarea></label><label>Загрузка файла <div class='upload-placeholder'>Dropzone placeholder</div></label>`;
-  return `<div class='modal-overlay' data-close-modal='1'><div class='modal'><div class='modal-header'><div><h3>Добавить в подразделение</h3><div class='muted'>Текущий контекст: ${node.name}</div></div><button data-close-modal='1'>✕</button></div><div class='entity-switcher'>${Object.entries(addTypes).map(([k, v]) => `<button class='${state.addType === k ? 'active' : ''}' data-add-type='${k}'>${v}</button>`).join('')}</div><div class='modal-form'>${form}</div><div class='modal-actions'><button data-close-modal='1'>Отмена</button><button data-submit-add='${state.addType}'>${submitLabels[state.addType]}</button></div></div></div>`;
+  return `<div class='modal-overlay' data-close-modal='1'><div class='modal'><div class='modal-header'><div><h3>${addModalTitle}</h3><div class='muted'>${contextLabel}: ${node.name}</div></div><button data-close-modal='1'>✕</button></div><div class='entity-switcher'>${allowedAddTypes.map((k) => `<button class='${state.addType === k ? 'active' : ''}' data-add-type='${k}'>${addTypeToLabel[k]}</button>`).join('')}</div><div class='modal-form'>${form}</div><div class='modal-actions'><button data-close-modal='1'>Отмена</button><button data-submit-add='${state.addType}'>${submitLabels[state.addType]}</button></div></div></div>`;
 }
 
 function settingsDrawerContent() {
